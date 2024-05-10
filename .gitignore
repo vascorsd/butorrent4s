@@ -1,5 +1,9 @@
+# build tools  and stuff
 .bsp
 .scala-build
 .metals
+
+# editors and their states
 .vscode
+.idea
 
