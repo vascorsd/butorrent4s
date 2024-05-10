@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 Vasco Dias <m+code@vascorsd.com>
+# SPDX-License-Identifier: CC0-1.0
+
 # build tools  and stuff
 .bsp
 .scala-build

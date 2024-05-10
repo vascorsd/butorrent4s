@@ -1,0 +1,10 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: butorrent4s
+Upstream-Contact: Vasco Dias <m+code@vascorsd.com>
+Source: https://github.com/vascorsd/butorrent4s
+
+# Sample paragraph, commented out:
+#
+# Files: src/*
+# Copyright: $YEAR $NAME <$CONTACT>
+# License: ...
