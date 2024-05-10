@@ -10,6 +10,6 @@ object Main extends IOApp {
         .as(ExitCode.Success)
     } else {
       IO.println("Didn't do it")
-        .as(ExitCode(-1))
+        .as(ExitCode(-1))     
     }
 }
