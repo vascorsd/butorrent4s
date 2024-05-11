@@ -1,0 +1,4 @@
+def decode(input: String) = {
+
+  ???
+}
