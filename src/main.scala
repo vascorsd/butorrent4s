@@ -37,6 +37,7 @@ object Main extends IOApp {
 
           case Program.Decode(input) =>
             decode(input)
+            // testDecode()
 
             IO.println("Decoding...").as(ExitCode.Success)
 
