@@ -1,3 +1,0 @@
-def encode(input: String) = {
-  ???
-}
