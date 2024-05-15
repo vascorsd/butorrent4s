@@ -3,11 +3,12 @@
 
 // TODO:
 //   - decode main entry point should decide which specific parsing to do.
-//   - need to limit amount of info that can be psushed into us, to protect against infinite input
+//   - need to limit amount of info that can be pushed into us, to protect against infinite input
 //   - probably change option to Eithers with specific error information
 //   - output should return remaining input that has not being parsed. this will allow composition.
 //     And also allows to replace the size check of the parse string.
 //   - Use other encoding besides Lists...
+//   - replace all of it by cats parser or any other custom parser combinators logic... (?)
 
 def decode(rawInput: String) = {
   val r = rawInput.charAt(0) match
@@ -148,6 +149,11 @@ def parseList() = {
   //
   //    Example: l4:spam4:eggse represents the list of two strings: [ "spam", "eggs" ]
   //    Example: le represents an empty list: []
+
+  // notes:
+  // 1. it seems nothing enforces that a list should have all elements be the same type.
+  //    by the codecrafters info, possible to have a list of a string and a number. in scala this would be List[Any]
+  // 2. ...
 
   ???
 }
