@@ -5,7 +5,7 @@ alias compile := build
 alias b := build
 alias c := build
 alias r := run
-    alias t := test
+alias t := test
 
 @_default:
     just --list
@@ -22,11 +22,11 @@ format:
 build:
     scala-cli compile . 
 
-# Compiles / builds the code.
+# Runs the program.
 run *INPUT:
     scala-cli . -- {{INPUT}}
 
-# Runs the tests of the project
+# Runs the tests of the project.
 test:
     scala-cli test .
 
