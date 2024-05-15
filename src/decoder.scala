@@ -1,36 +1,22 @@
 // SPDX-FileCopyrightText: 2024 Vasco Dias <m+code@vascorsd.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// TODO:
+//   - decode main entry point should decide which specific parsing to do.
+//   - need to limit amount of info that can be psushed into us, to protect against infinite input
+//   - probably change option to Eithers with specific error information
+//   - output should return remaining input that has not being parsed. this will allow composition.
+//     And also allows to replace the size check of the parse string.
+//   - Use other encoding besides Lists...
+
 def decode(rawInput: String) = {
-  parseByteString(rawInput.toList).foreach(println(_))
-  parseInteger(rawInput.toList).foreach(println(_))
-}
+  val r = rawInput.charAt(0) match
+    case 'i' => parseInteger(rawInput.toList)
+    case 'l' => ???
+    case 'd' => ???
+    case _   => parseByteString(rawInput.toList)
 
-def testDecode() = {
-  // should fail:
-  decode("")
-  decode(":")
-  decode("s")
-  decode("ss")
-  decode("s:")
-  decode("ss:")
-  decode("1")
-  decode("1s")
-  decode("1s:")
-  decode("s1")
-  decode("s1:")
-  decode("1:ss")
-  decode("0:ss")
-  decode("01:")
-
-  // should suceed:
-  decode("1:s")
-  decode("0:")
-  decode("2:ss")
-  decode("10:ssssssssss")
-
-  // unicode string supported? size??
-
+  println(r)
 }
 
 def parseByteString(
@@ -147,12 +133,18 @@ def parseInteger(
 }
 
 def parseList() = {
+  // From spec at: https://wiki.theory.org/BitTorrentSpecification#Lists
+  //
   // Lists are encoded as follows: l<bencoded values>e
-  // The initial l and trailing e are beginning and ending delimiters. Lists may contain any bencoded type, including integers, strings, dictionaries, and even lists within other lists.
+  // The initial l and trailing e are beginning and ending delimiters.
+  // Lists may contain any bencoded type, including integers, strings, dictionaries,
+  // and even lists within other lists.
   //
   //    Example: l4:spam4:eggse represents the list of two strings: [ "spam", "eggs" ]
   //    Example: le represents an empty list: []Lists are encoded as follows: l<bencoded values>e
-  // The initial l and trailing e are beginning and ending delimiters. Lists may contain any bencoded type, including integers, strings, dictionaries, and even lists within other lists.
+  //
+  // The initial l and trailing e are beginning and ending delimiters.
+  // Lists may contain any bencoded type, including integers, strings, dictionaries, and even lists within other lists.
   //
   //    Example: l4:spam4:eggse represents the list of two strings: [ "spam", "eggs" ]
   //    Example: le represents an empty list: []
@@ -161,8 +153,14 @@ def parseList() = {
 }
 
 def parseDictionary() = {
+  // From spec at: https://wiki.theory.org/BitTorrentSpecification#Dictionaries
+  //
   // Dictionaries are encoded as follows: d<bencoded string><bencoded element>e
-  // The initial d and trailing e are the beginning and ending delimiters. Note that the keys must be bencoded strings. The values may be any bencoded type, including integers, strings, lists, and other dictionaries. Keys must be strings and appear in sorted order (sorted as raw strings, not alphanumerics). The strings should be compared using a binary comparison, not a culture-specific "natural" comparison.
+  // The initial d and trailing e are the beginning and ending delimiters.
+  // Note that the keys must be bencoded strings. The values may be any bencoded type, including integers,
+  // strings, lists, and other dictionaries.
+  // Keys must be strings and appear in sorted order (sorted as raw strings, not alphanumerics).
+  // The strings should be compared using a binary comparison, not a culture-specific "natural" comparison.
   //
   //    Example: d3:cow3:moo4:spam4:eggse represents the dictionary { "cow" => "moo", "spam" => "eggs" }
   //    Example: d4:spaml1:a1:bee represents the dictionary { "spam" => [ "a", "b" ] }

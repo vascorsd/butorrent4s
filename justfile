@@ -1,6 +1,12 @@
 # SPDX-FileCopyrightText: 2024 Vasco Dias <m+code@vascorsd.com>
 # SPDX-License-Identifier: CC0-1.0
 
+alias compile := build
+alias b := build
+alias c := build
+alias r := run
+    alias t := test
+
 @_default:
     just --list
 
@@ -16,7 +22,14 @@ format:
 build:
     scala-cli compile . 
 
-alias b := build
+# Compiles / builds the code.
+run *INPUT:
+    scala-cli . -- {{INPUT}}
 
-alias compile := build
-alias c := build
+# Runs the tests of the project
+test:
+    scala-cli test .
+
+
+
+
