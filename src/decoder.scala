@@ -12,7 +12,13 @@
 
 package butorrent4s
 
+emptyimport cats.data.{NonEmptyList, NonEmptyMap}
+
 import scala.annotation.tailrec
+
+type Parsed = String | Long
+type Remaining = List[Char]
+type ParseResult = Option[(Parsed, Remaining)]
 
 def decode(rawInput: String) = {
   val r = rawInput.charAt(0) match
@@ -24,11 +30,9 @@ def decode(rawInput: String) = {
   println(r)
 }
 
-@tailrec
 def parseByteString(
-    input: List[Char],
-    digitsSeen: List[Char] = List.empty
-): Option[String] = {
+    input: List[Char]
+): ParseResult = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Byte_Strings
   //
   // Byte strings are encoded as follows: <string length encoded in base ten ASCII>:<string data>
@@ -37,30 +41,46 @@ def parseByteString(
   //    Example: 4: spam represents the string "spam"
   //    Example: 0: represents the empty string ""
 
-  input match {
-    // Reached the ':' and found some digits.
-    case ':' :: xs if digitsSeen.nonEmpty =>
-      // doesn't fail, since we checked it's digits we are parsing.
-      // parsing to Int, since max size of string in jvm is Integer.MAX_VALUE.
-      val strlen = digitsSeen.reverse.toArray.mkString.toIntOption
+  @tailrec
+  def parseInnerLoop(
+      input: List[Char],
+      digitsSeen: List[Char]
+  ): ParseResult = {
+    input match {
+      // Reached the ':' and found some digits.
+      case ':' :: xs if digitsSeen.nonEmpty =>
+        // doesn't fail, since we checked it's digits we are parsing.
+        // parsing to Int, since max size of string in jvm is Integer.MAX_VALUE.
+        val strlen = digitsSeen.reverse.toArray.mkString.toIntOption
 
-      // check that we have at least the amount of data requested in the input.
-      strlen
-        .filter(len => xs.size >= len)
-        .map(len => xs.take(len).toArray.mkString)
+        // check that we have at least the amount of data requested in the input.
+        // strlen
+        //   .filter(len => xs.size >= len)
+        //   .map(len => xs.take(len).toArray.mkString)
 
-    // Next char is a digit, accumulate it, check next.
-    case x :: xs if x.isDigit =>
-      parseByteString(input = xs, digitsSeen = x :: digitsSeen)
+        strlen
+          .filter(len => xs.size >= len)
+          .map { len =>
+            val (parsed, remaining) = xs.splitAt(len)
 
-    // No delimiter ':' and no digits, bad input
-    case _ => None
+            (String(parsed.toArray), remaining)
+          }
+
+      // Next char is a digit, accumulate it, check next.
+      case x :: xs if x.isDigit =>
+        parseInnerLoop(input = xs, digitsSeen = x :: digitsSeen)
+
+      // No delimiter ':' and no digits, bad input
+      case _ => None
+    }
   }
+
+  parseInnerLoop(input = input, digitsSeen = List.empty)
 }
 
 def parseInteger(
     input: List[Char]
-): Option[Long] = {
+): ParseResult = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Integers
   //
   // Integers are encoded as follows: i<integer encoded in base ten ASCII>e
@@ -75,7 +95,7 @@ def parseInteger(
   //    NOTE: The maximum number of bit of this integer is unspecified, but to handle it as a signed 64bit
   //    integer is mandatory to handle "large files" aka .torrent for more that 4Gbyte.
 
-  // notes:
+  // notes / tldr:
   // 1. number must be parsed to Long (64 bits) at least
   // 2. leading 0 is bad
   // 3. determine if negative number
@@ -84,8 +104,8 @@ def parseInteger(
   def parseInnerLoop(
       isNegative: Boolean,
       input: List[Char],
-      acc: List[Char]
-  ): Option[Long] = {
+      digitsSeen: NonEmptyList[Char]
+  ): ParseResult = {
     // todo(gotcha, fix, security): we have a problem that we are not shortcircuting as soon
     // as possible when we already know that many zeros are being pushed to the input
     // if starting by leading zero and we are only checking the validity if/when we encounter
@@ -98,27 +118,36 @@ def parseInteger(
     //                     (2) Exiting earlier, will complicate logic inside the parser.
 
     input match {
-      case 'e' :: xs if acc.nonEmpty =>
-        val digits = acc.reverse
+      case 'e' :: unparsed =>
+        val digits = digitsSeen.reverse
 
         digits match {
           // we need to check if we have a valid encoding of the zero number.
-          case '0' :: xs =>
-            if isNegative || xs.nonEmpty then None
-            else Some(0L)
+          case NonEmptyList('0', Nil) =>
+            if isNegative then None
+            else Some((0L, unparsed))
 
-          case xs =>
+          // todo: we shouldn't need this case
+          case NonEmptyList('0', _) =>
+            None
+
+          case _ =>
             // we need to recover the negative encoding since the acc only has digits,
             // not the negative sign.
             val numberToParse =
               if isNegative then '-' :: digits
               else digits
 
-            numberToParse.toArray.mkString.toLongOption
+            String(numberToParse.toList.toArray).toLongOption
+              .map(p => (p, unparsed))
         }
 
       case x :: xs if x.isDigit =>
-        parseInnerLoop(isNegative, input = xs, acc = x :: acc)
+        parseInnerLoop(
+          isNegative = isNegative,
+          input = xs,
+          digitsSeen = x :: digitsSeen
+        )
 
       case _ =>
         None
@@ -127,10 +156,18 @@ def parseInteger(
 
   input match {
     case 'i' :: '-' :: x :: xs if x.isDigit =>
-      parseInnerLoop(isNegative = true, input = xs, acc = x :: Nil)
+      parseInnerLoop(
+        isNegative = true,
+        input = xs,
+        digitsSeen = NonEmptyList.one(x)
+      )
 
     case 'i' :: x :: xs if x.isDigit =>
-      parseInnerLoop(isNegative = false, input = xs, acc = x :: Nil)
+      parseInnerLoop(
+        isNegative = false,
+        input = xs,
+        digitsSeen = NonEmptyList.one(x)
+      )
 
     case _ =>
       None
