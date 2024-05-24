@@ -12,7 +12,7 @@
 
 package butorrent4s
 
-emptyimport cats.data.{NonEmptyList, NonEmptyMap}
+import cats.data.{NonEmptyList, NonEmptyMap}
 
 import scala.annotation.tailrec
 
@@ -106,41 +106,18 @@ def parseInteger(
       input: List[Char],
       digitsSeen: NonEmptyList[Char]
   ): ParseResult = {
-    // todo(gotcha, fix, security): we have a problem that we are not shortcircuting as soon
-    // as possible when we already know that many zeros are being pushed to the input
-    // if starting by leading zero and we are only checking the validity if/when we encounter
-    // the 'e' termination tag. This allows an attacker to push infinite zeros without
-    // terminating and screw with us.
-    //
-    // Possible solutions: (1) Have a limited stack / memory size and only allow a certain amount of
-    //                     data to be pushed. Probably needs something like this for the other parsers anyway.
-    //                     Still allows to loop up until that size, but should not blow up.
-    //                     (2) Exiting earlier, will complicate logic inside the parser.
-
     input match {
       case 'e' :: unparsed =>
         val digits = digitsSeen.reverse
 
-        digits match {
-          // we need to check if we have a valid encoding of the zero number.
-          case NonEmptyList('0', Nil) =>
-            if isNegative then None
-            else Some((0L, unparsed))
+        // we need to recover the negative encoding since the acc only has digits,
+        // not the negative sign.
+        val numberToParse =
+          if isNegative then '-' :: digits
+          else digits
 
-          // todo: we shouldn't need this case
-          case NonEmptyList('0', _) =>
-            None
-
-          case _ =>
-            // we need to recover the negative encoding since the acc only has digits,
-            // not the negative sign.
-            val numberToParse =
-              if isNegative then '-' :: digits
-              else digits
-
-            String(numberToParse.toList.toArray).toLongOption
-              .map(p => (p, unparsed))
-        }
+        String(numberToParse.toList.toArray).toLongOption
+          .map(p => (p, unparsed))
 
       case x :: xs if x.isDigit =>
         parseInnerLoop(
@@ -155,6 +132,15 @@ def parseInteger(
   }
 
   input match {
+    // unroll specific cases:
+    //  1. exactly zero encoded.
+    //  2. anything else starting with zero, invalid.
+    //  2. -0  -> no negative zero concept.
+    case 'i' :: '0' :: 'e' :: xs => Some((0L, xs))
+    case 'i' :: '0' :: x :: xs   => None
+    case 'i' :: '-' :: '0' :: xs => None
+
+    // looping cases:
     case 'i' :: '-' :: x :: xs if x.isDigit =>
       parseInnerLoop(
         isNegative = true,
