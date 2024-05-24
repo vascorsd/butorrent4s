@@ -10,6 +10,10 @@
 //   - Use other encoding besides Lists...
 //   - replace all of it by cats parser or any other custom parser combinators logic... (?)
 
+package butorrent4s
+
+import scala.annotation.tailrec
+
 def decode(rawInput: String) = {
   val r = rawInput.charAt(0) match
     case 'i' => parseInteger(rawInput.toList)
@@ -20,6 +24,7 @@ def decode(rawInput: String) = {
   println(r)
 }
 
+@tailrec
 def parseByteString(
     input: List[Char],
     acc: List[Char] = List.empty
@@ -77,6 +82,7 @@ def parseInteger(
   // 2. leading 0 is bad
   // 3. determine if negative number
 
+  @tailrec
   def parseInnerLoop(
       isNegative: Boolean,
       input: List[Char],
