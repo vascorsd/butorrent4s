@@ -27,7 +27,7 @@ def decode(rawInput: String) = {
 @tailrec
 def parseByteString(
     input: List[Char],
-    acc: List[Char] = List.empty
+    digitsSeen: List[Char] = List.empty
 ): Option[String] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Byte_Strings
   //
@@ -38,22 +38,20 @@ def parseByteString(
   //    Example: 0: represents the empty string ""
 
   input match {
-    // Reached the ':', and found before it digits.
-    case ':' :: xs if acc.nonEmpty =>
-      // should not fail I guess, since we checked it's digits (?)
-      // should we parse it to Int or Long (?)
-      val strlen =
-        acc.reverse.toArray.mkString.toIntOption
+    // Reached the ':' and found some digits.
+    case ':' :: xs if digitsSeen.nonEmpty =>
+      // doesn't fail, since we checked it's digits we are parsing.
+      // parsing to Int, since max size of string in jvm is Integer.MAX_VALUE.
+      val strlen = digitsSeen.reverse.toArray.mkString.toIntOption
 
-      // asking for more than available, is an error (?)
-      // size asked should match the size of the remaining availabe input.
+      // check that we have at least the amount of data requested in the input.
       strlen
-        .filter(l => l == xs.size)
-        .map(l => xs.take(l.toInt).toArray.mkString)
+        .filter(len => xs.size >= len)
+        .map(len => xs.take(len).toArray.mkString)
 
     // Next char is a digit, accumulate it, check next.
     case x :: xs if x.isDigit =>
-      parseByteString(input = xs, acc = x :: acc)
+      parseByteString(input = xs, digitsSeen = x :: digitsSeen)
 
     // No delimiter ':' and no digits, bad input
     case _ => None

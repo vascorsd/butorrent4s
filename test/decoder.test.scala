@@ -13,8 +13,6 @@ class DecoderTests extends munit.FunSuite {
     assert(parseByteString("1s:".toList) == None)
     assert(parseByteString("s1".toList) == None)
     assert(parseByteString("s1:".toList) == None)
-    assert(parseByteString("1:ss".toList) == None)
-    assert(parseByteString("0:ss".toList) == None)
     assert(parseByteString("01:".toList) == None)
   }
 
@@ -23,6 +21,16 @@ class DecoderTests extends munit.FunSuite {
     assert(parseByteString("0:".toList) == Some(""))
     assert(parseByteString("2:ss".toList) == Some("ss"))
     assert(parseByteString("10:ssssssssss".toList) == Some("ssssssssss"))
+
+    // these 2 tests now pass since the parse string function
+    // as become less eager and only checks that there's at least
+    // the info requested to parse. Doesn't care if there's trash afterwards.
+    assert(parseByteString("0:ss".toList) == Some(""))
+    assert(parseByteString("1:ss".toList) == Some("s"))
+
+    // todo: test limits of Ints. As is currently represented I can't even
+    //  create a string of the max size in the test.
+    // parseByteString("2147483647:")
   }
 
   test("parseInteger ❌") {
@@ -35,6 +43,12 @@ class DecoderTests extends munit.FunSuite {
 
     assert(parseInteger("i-s5e".toList) == None)
     assert(parseInteger("i-i1e".toList) == None)
+
+    assert(
+      parseInteger(
+        "i000000000000000000000000000000000000000000000000000000000000000000000001e".toList
+      ) == None
+    )
   }
 
   test("parseInteger ✔") {
