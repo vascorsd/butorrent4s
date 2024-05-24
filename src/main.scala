@@ -8,6 +8,7 @@ import cats.syntax.monoid.*
 import cats.effect.*
 import cats.effect.std.Console
 import com.monovore.decline.*
+import fs2.io.*
 
 object Main extends IOApp {
 
@@ -33,10 +34,35 @@ object Main extends IOApp {
             IO.println("Version 10").as(ExitCode.Success)
 
           case Program.Decode(input) =>
-            decode(input)
-            // testDecode()
+            val x = input match
+              case "-" =>
+                fs2.io
+                  .stdinUtf8[IO](1024)
+                  .map(decode)
+                  .evalMap {
+                    case Some((parsed: String, remaining)) =>
+                      IO.println(s"Decoded String: ${parsed}.") *>
+                        IO.println(
+                          s"Remaining unparsed input: ${remaining.toArray.mkString}"
+                        )
 
-            IO.println("Decoding...").as(ExitCode.Success)
+                    case Some((parsed: Long, remaining)) =>
+                      IO.println(s"Decoded Integer: ${parsed}.") *>
+                        IO.println(
+                          s"Remaining unparsed input: ${remaining.toArray.mkString}"
+                        )
+
+                    case None =>
+                      IO.println("Couldn't decode given input")
+                  }
+                  .compile
+                  .drain
+
+              case _ => ??? // decode(input)
+
+            // testDecode()
+            x.as(ExitCode.Success)
+          // IO.println("Decoding...").as(ExitCode.Success)
 
           case Program.Encode(input) =>
             // encode(input)

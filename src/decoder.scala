@@ -20,14 +20,12 @@ type Parsed = String | Long
 type Remaining = List[Char]
 type ParseResult = Option[(Parsed, Remaining)]
 
-def decode(rawInput: String) = {
-  val r = rawInput.charAt(0) match
+def decode(rawInput: String): ParseResult = {
+  rawInput.charAt(0) match
     case 'i' => parseInteger(rawInput.toList)
     case 'l' => ???
     case 'd' => ???
     case _   => parseByteString(rawInput.toList)
-
-  println(r)
 }
 
 def parseByteString(
