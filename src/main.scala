@@ -5,7 +5,7 @@ import cats.data.Validated
 import cats.syntax.monoid.*
 import cats.effect.*
 import cats.effect.std.Console
-import com.monovore.decline.{Opts, Help as DHelp, *}
+import com.monovore.decline.*
 
 object Main extends IOApp {
 
@@ -27,11 +27,6 @@ object Main extends IOApp {
 
       case Right(v) =>
         v match
-          case Program.Help(help) =>
-//            IO.println("halp") *>
-            IO.println(help)
-              .as(ExitCode.Success)
-
           case Program.Version =>
             IO.println("Version 10").as(ExitCode.Success)
 
@@ -50,7 +45,6 @@ object Main extends IOApp {
 
 enum Program {
   case Version
-  case Help(help: DHelp)
   case Decode(input: String)
   case Encode(input: String)
 }
@@ -82,29 +76,6 @@ object Program {
       )
       .map(_ => Program.Version)
 
-  def helpCommand =
-    Command(
-      name = "help",
-      header = "Print this message or the help of the given subcommand(s)",
-      helpFlag = false
-    ) {
-      Opts
-        .argument[String]("COMMAND")
-        .mapValidated { str =>
-          val available = Map(
-            "encode" -> DHelp.fromCommand(encodeCommand),
-            "decode" -> DHelp.fromCommand(decodeCommand)
-          )
-
-          Validated
-            .condNel(
-              available.keys.toList.contains(str),
-              available(str),
-              s"error: unrecognized subcommand '$str'"
-            )
-        }
-    }.map(v => Program.Help(v))
-
   def encodeCommand =
     Command(
       name = "encode",
@@ -130,7 +101,6 @@ object Program {
       .orElse(helpFlag)
       .orElse(
         Opts.subcommands(
-          helpCommand,
           encodeCommand,
           decodeCommand
         )
