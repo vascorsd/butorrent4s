@@ -198,8 +198,10 @@ def parserList(input: List[Char]): ParseResult[BencodeData.BenList] = {
       elems: List[BencodeData]
   ): ParseResult[BencodeData.BenList] = {
     in match
-      case 'e' :: unparsed => Some((BencodeData.BenList(elems), unparsed))
-      case _               =>
+      case 'e' :: unparsed =>
+        Some((BencodeData.BenList(elems.reverse), unparsed))
+
+      case _ =>
         // composition step, one parser after the next, monadic bind, flatmap, etc
 
         parserChoice(in) match
