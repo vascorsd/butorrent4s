@@ -15,13 +15,14 @@ package butorrent4s
 import cats.data.{NonEmptyList, NonEmptyMap}
 
 import scala.annotation.tailrec
+import scala.collection.immutable.TreeSeqMap
 
 // AST for the valid data types of Bencoded data.
 enum BencodeData {
   case BenString(v: String)
   case BenInteger(v: Long)
   case BenList(v: List[BencodeData])
-  case BenDict(v: Map[String, BencodeData])
+  case BenDict(v: Map[BenString, BencodeData])
 }
 
 type ParseResult[+A] = Option[(A, List[Char])]
@@ -190,7 +191,6 @@ def parserList(input: List[Char]): ParseResult[BencodeData.BenList] = {
   // notes:
   // 1. it seems nothing enforces that a list should have all elements be the same type.
   //    by the codecrafters info, possible to have a list of a string and a number. in scala this would be List[Any]
-  // 2. ...
 
   @tailrec
   def loop(
@@ -203,12 +203,14 @@ def parserList(input: List[Char]): ParseResult[BencodeData.BenList] = {
 
       case _ =>
         // composition step, one parser after the next, monadic bind, flatmap, etc
+        // note: cannot use flatmap method because cmompiler errors out with "not in tail position"
 
-        parserChoice(in) match
+        parserChoice(in) match {
           case Some((parsed, unparsed)) =>
             loop(in = unparsed, elems = parsed :: elems)
 
           case None => None
+        }
   }
 
   input match
@@ -231,5 +233,33 @@ def parserDictionary(input: List[Char]): ParseResult[BencodeData.BenDict] = {
   //    Example: d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee represents { "publisher" => "bob", "publisher-webpage" => "www.example.com", "publisher.location" => "home" }
   //    Example: de represents an empty dictionary {}
 
-  ???
+  @tailrec
+  def loop(
+      in: List[Char],
+      elems: TreeSeqMap[BencodeData.BenString, BencodeData]
+  ): ParseResult[BencodeData.BenDict] = {
+    in match
+      case 'e' :: unparsed =>
+        Some((BencodeData.BenDict(elems), unparsed))
+
+      case _ =>
+        // composition step, one parser after the next, monadic bind, flatmap, etc
+        // note: manually unroll since compiler can't work out the flatmaps
+
+        parserByteString(in) match {
+          case Some((parsedKey, unparsed)) =>
+            parserChoice(unparsed) match {
+              case Some((parsedValue, unparsed)) =>
+                loop(in = unparsed, elems = elems + ((parsedKey, parsedValue)))
+
+              case None => None
+            }
+
+          case None => None
+        }
+  }
+
+  input match
+    case 'd' :: xs => loop(in = xs, elems = TreeSeqMap.empty)
+    case _         => None
 }
