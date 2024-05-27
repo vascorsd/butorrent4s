@@ -16,21 +16,33 @@ import cats.data.{NonEmptyList, NonEmptyMap}
 
 import scala.annotation.tailrec
 
-type Parsed = String | Long
-type Remaining = List[Char]
-type ParseResult = Option[(Parsed, Remaining)]
-
-def decode(rawInput: String): ParseResult = {
-  rawInput.charAt(0) match
-    case 'i' => parseInteger(rawInput.toList)
-    case 'l' => ???
-    case 'd' => ???
-    case _   => parseByteString(rawInput.toList)
+// AST for the valid data types of Bencoded data.
+enum BencodeData {
+  case BenString(v: String)
+  case BenInteger(v: Long)
+  case BenList(v: List[BencodeData])
+  case BenDict(v: Map[String, BencodeData])
 }
 
-def parseByteString(
+type ParseResult[+A] = Option[(A, List[Char])]
+
+def decode(rawInput: String): ParseResult[BencodeData] = {
+  parserChoice(rawInput.toList)
+}
+
+// choice / alternative by peeking on first next char without consuming it.
+def parserChoice(input: List[Char]): ParseResult[BencodeData] = {
+  input match
+    case 'i' :: _            => parserInteger(input)
+    case 'l' :: _            => parserList(input)
+    case 'd' :: _            => parserDictionary(input)
+    case c :: _ if c.isDigit => parserByteString(input)
+    case _                   => None
+}
+
+def parserByteString(
     input: List[Char]
-): ParseResult = {
+): ParseResult[BencodeData.BenString] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Byte_Strings
   //
   // Byte strings are encoded as follows: <string length encoded in base ten ASCII>:<string data>
@@ -40,11 +52,11 @@ def parseByteString(
   //    Example: 0: represents the empty string ""
 
   @tailrec
-  def parseInnerLoop(
-      input: List[Char],
+  def loop(
+      in: List[Char],
       digitsSeen: List[Char]
-  ): ParseResult = {
-    input match {
+  ): ParseResult[BencodeData.BenString] = {
+    in match {
       // Reached the ':' and found some digits.
       case ':' :: xs if digitsSeen.nonEmpty =>
         // doesn't fail, since we checked it's digits we are parsing.
@@ -61,24 +73,24 @@ def parseByteString(
           .map { len =>
             val (parsed, remaining) = xs.splitAt(len)
 
-            (String(parsed.toArray), remaining)
+            (BencodeData.BenString(String(parsed.toArray)), remaining)
           }
 
       // Next char is a digit, accumulate it, check next.
       case x :: xs if x.isDigit =>
-        parseInnerLoop(input = xs, digitsSeen = x :: digitsSeen)
+        loop(in = xs, digitsSeen = x :: digitsSeen)
 
       // No delimiter ':' and no digits, bad input
       case _ => None
     }
   }
 
-  parseInnerLoop(input = input, digitsSeen = List.empty)
+  loop(in = input, digitsSeen = List.empty)
 }
 
-def parseInteger(
+def parserInteger(
     input: List[Char]
-): ParseResult = {
+): ParseResult[BencodeData.BenInteger] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Integers
   //
   // Integers are encoded as follows: i<integer encoded in base ten ASCII>e
@@ -99,12 +111,12 @@ def parseInteger(
   // 3. determine if negative number
 
   @tailrec
-  def parseInnerLoop(
+  def loop(
       isNegative: Boolean,
-      input: List[Char],
+      in: List[Char],
       digitsSeen: NonEmptyList[Char]
-  ): ParseResult = {
-    input match {
+  ): ParseResult[BencodeData.BenInteger] = {
+    in match {
       case 'e' :: unparsed =>
         val digits = digitsSeen.reverse
 
@@ -115,12 +127,12 @@ def parseInteger(
           else digits
 
         String(numberToParse.toList.toArray).toLongOption
-          .map(p => (p, unparsed))
+          .map(p => (BencodeData.BenInteger(p), unparsed))
 
       case x :: xs if x.isDigit =>
-        parseInnerLoop(
+        loop(
           isNegative = isNegative,
-          input = xs,
+          in = xs,
           digitsSeen = x :: digitsSeen
         )
 
@@ -134,22 +146,22 @@ def parseInteger(
     //  1. exactly zero encoded.
     //  2. anything else starting with zero, invalid.
     //  2. -0  -> no negative zero concept.
-    case 'i' :: '0' :: 'e' :: xs => Some((0L, xs))
+    case 'i' :: '0' :: 'e' :: xs => Some((BencodeData.BenInteger(0L), xs))
     case 'i' :: '0' :: x :: xs   => None
     case 'i' :: '-' :: '0' :: xs => None
 
     // looping cases:
     case 'i' :: '-' :: x :: xs if x.isDigit =>
-      parseInnerLoop(
+      loop(
         isNegative = true,
-        input = xs,
+        in = xs,
         digitsSeen = NonEmptyList.one(x)
       )
 
     case 'i' :: x :: xs if x.isDigit =>
-      parseInnerLoop(
+      loop(
         isNegative = false,
-        input = xs,
+        in = xs,
         digitsSeen = NonEmptyList.one(x)
       )
 
@@ -158,7 +170,7 @@ def parseInteger(
   }
 }
 
-def parseList() = {
+def parserList(input: List[Char]): ParseResult[BencodeData.BenList] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Lists
   //
   // Lists are encoded as follows: l<bencoded values>e
@@ -180,10 +192,29 @@ def parseList() = {
   //    by the codecrafters info, possible to have a list of a string and a number. in scala this would be List[Any]
   // 2. ...
 
-  ???
+  @tailrec
+  def loop(
+      in: List[Char],
+      elems: List[BencodeData]
+  ): ParseResult[BencodeData.BenList] = {
+    in match
+      case 'e' :: unparsed => Some((BencodeData.BenList(elems), unparsed))
+      case _               =>
+        // composition step, one parser after the next, monadic bind, flatmap, etc
+
+        parserChoice(in) match
+          case Some((parsed, unparsed)) =>
+            loop(in = unparsed, elems = parsed :: elems)
+
+          case None => None
+  }
+
+  input match
+    case 'l' :: xs => loop(in = xs, elems = List.empty)
+    case _         => None
 }
 
-def parseDictionary() = {
+def parserDictionary(input: List[Char]): ParseResult[BencodeData.BenDict] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Dictionaries
   //
   // Dictionaries are encoded as follows: d<bencoded string><bencoded element>e
