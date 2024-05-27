@@ -1,53 +1,59 @@
 package butorrent4s
 
+import BencodeData.*
+
+def resultOk[A](v: A, r: String): ParseResult[A] = Some((v, r.toList))
+def resultBad: ParseResult[BencodeData] = None
+
 class DecoderTests extends munit.FunSuite {
-  test("parseByteString ❌") {
-    assertEquals(parseByteString("".toList), None)
-    assertEquals(parseByteString(":".toList), None)
-    assertEquals(parseByteString("s".toList), None)
-    assertEquals(parseByteString("ss".toList), None)
-    assertEquals(parseByteString("s:".toList), None)
-    assertEquals(parseByteString("ss:".toList), None)
-    assertEquals(parseByteString("1".toList), None)
-    assertEquals(parseByteString("1s".toList), None)
-    assertEquals(parseByteString("1s:".toList), None)
-    assertEquals(parseByteString("s1".toList), None)
-    assertEquals(parseByteString("s1:".toList), None)
-    assertEquals(parseByteString("01:".toList), None)
+
+  test("parserByteString ❌ - invalid inputs") {
+    assertEquals(parserByteString("".toList), resultBad)
+    assertEquals(parserByteString(":".toList), resultBad)
+    assertEquals(parserByteString("s".toList), resultBad)
+    assertEquals(parserByteString("ss".toList), resultBad)
+    assertEquals(parserByteString("s:".toList), resultBad)
+    assertEquals(parserByteString("ss:".toList), resultBad)
+    assertEquals(parserByteString("1".toList), resultBad)
+    assertEquals(parserByteString("1s".toList), resultBad)
+    assertEquals(parserByteString("1s:".toList), resultBad)
+    assertEquals(parserByteString("s1".toList), resultBad)
+    assertEquals(parserByteString("s1:".toList), resultBad)
+    assertEquals(parserByteString("01:".toList), resultBad)
   }
 
-  test("parseByteString ✔") {
+  test("parserByteString ✔ - valid inputs") {
     assertEquals(
-      parseByteString("1:s".toList),
-      Some(("s", List.empty))
+      parserByteString("1:s".toList),
+      resultOk(BenString("s"), "")
     )
 
     assertEquals(
-      parseByteString("0:".toList),
-      Some(("", List.empty))
+      parserByteString("0:".toList),
+      resultOk(BenString(""), "")
     )
 
     assertEquals(
-      parseByteString("2:ss".toList),
-      Some(("ss", List.empty))
+      parserByteString("2:ss".toList),
+      resultOk(BenString("ss"), "")
     )
 
     assertEquals(
-      parseByteString("10:ssssssssss".toList),
-      Some(("ssssssssss", List.empty))
+      parserByteString("10:ssssssssss".toList),
+      resultOk(BenString("ssssssssss"), "")
     )
 
     // these 2 tests now pass since the parse string function
     // as become less eager and only checks that there's at least
     // the info requested to parse. Doesn't care if there's trash afterwards.
     assertEquals(
-      parseByteString("0:ss".toList),
-      Some(("", List('s', 's')))
+      parserByteString("0:ss".toList),
+      resultOk(BenString(""), "ss")
     )
 
     assertEquals(
-      parseByteString("1:ss".toList),
-      Some(("s", List('s')))
+      parserByteString("1:ss".toList),
+      resultOk(BenString("s"), "s")
     )
 
     // todo: test limits of Ints. As is currently represented I can't even
@@ -55,54 +61,108 @@ class DecoderTests extends munit.FunSuite {
     // parseByteString("2147483647:")
   }
 
-  test("parseInteger ❌") {
-    assertEquals(parseInteger("i010e".toList), None)
-    assertEquals(parseInteger("iss1e".toList), None)
-    assertEquals(parseInteger("i5ie".toList), None)
-    assertEquals(parseInteger("i0101010101010000000000000".toList), None)
+  test("parserInteger ❌ - invalid inputs") {
+    assertEquals(parserInteger("i010e".toList), resultBad)
+    assertEquals(parserInteger("iss1e".toList), resultBad)
+    assertEquals(parserInteger("i5ie".toList), resultBad)
+    assertEquals(parserInteger("i0101010101010000000000000".toList), resultBad)
 
-    assertEquals(parseInteger("i-0e".toList), None)
+    assertEquals(parserInteger("i-0e".toList), resultBad)
 
-    assertEquals(parseInteger("i-s5e".toList), None)
-    assertEquals(parseInteger("i-i1e".toList), None)
+    assertEquals(parserInteger("i-s5e".toList), resultBad)
+    assertEquals(parserInteger("i-i1e".toList), resultBad)
 
     assertEquals(
-      parseInteger(
-        "i000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001e".toList
+      parserInteger(
+        "i000000000000000000000000000000000000000000000000000000000000000000000000000000000000001e".toList
       ),
-      None
+      resultBad
     )
   }
 
-  test("parseInteger ✔") {
+  test("parserInteger ✔ - valid inputs") {
     assertEquals(
-      parseInteger("i1e".toList),
-      Some((1L, List.empty))
+      parserInteger("i1e".toList),
+      resultOk(BenInteger(1L), "")
     )
 
     assertEquals(
-      parseInteger("i10e".toList),
-      Some((10L, List.empty))
+      parserInteger("i10e".toList),
+      resultOk(BenInteger(10L), "")
     )
 
     assertEquals(
-      parseInteger("i9999999999e:".toList),
-      Some((9999999999L, List(':')))
+      parserInteger("i9999999999e:".toList),
+      resultOk(BenInteger(9999999999L), ":")
     )
 
     assertEquals(
-      parseInteger("i0e".toList),
-      Some((0L, List.empty))
+      parserInteger("i0e".toList),
+      resultOk(BenInteger(0L), "")
     )
 
     assertEquals(
-      parseInteger("i-50e".toList),
-      Some((-50L, List.empty))
+      parserInteger("i-50e".toList),
+      resultOk(BenInteger(-50L), "")
     )
 
     assertEquals(
-      parseInteger("i-9999999999e:".toList),
-      Some((-9999999999L, List(':')))
+      parserInteger("i-9999999999e:".toList),
+      resultOk(BenInteger(-9999999999L), ":")
+    )
+  }
+
+  test("parserList ❌ - invalid inputs") {
+    assertEquals(parserList("".toList), resultBad)
+    assertEquals(parserList("e".toList), resultBad)
+    assertEquals(parserList("l".toList), resultBad)
+
+    assertEquals(parserList("l:e".toList), resultBad)
+    assertEquals(parserList("l1e".toList), resultBad)
+    assertEquals(parserList("l1:e".toList), resultBad)
+
+    assertEquals(parserList("lie".toList), resultBad)
+    assertEquals(parserList("li-ee".toList), resultBad)
+    assertEquals(parserList("li10e5e".toList), resultBad)
+
+    assertEquals(parserList("lle".toList), resultBad)
+    assertEquals(parserList("ll5e".toList), resultBad)
+  }
+
+  test("parserList ✔ - valid inputs") {
+    assertEquals(
+      parserList("le".toList),
+      resultOk(BenList(List.empty), "")
+    )
+
+    assertEquals(
+      parserList("lee".toList),
+      resultOk(BenList(List.empty), "e")
+    )
+
+    assertEquals(
+      parserList("l0:e".toList),
+      resultOk(
+        BenList(
+          BenString("") ::
+            Nil
+        ),
+        ""
+      )
+    )
+
+    assertEquals(
+      parserList("l0:2:ssi1elee".toList),
+      resultOk(
+        BenList(
+          BenString("") ::
+            BenString("ss") ::
+            BenInteger(1L) ::
+            BenList(Nil) ::
+            Nil
+        ),
+        ""
+      )
     )
   }
 }
