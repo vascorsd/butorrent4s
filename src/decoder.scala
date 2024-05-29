@@ -12,27 +12,22 @@
 
 package butorrent4s
 
-import cats.data.{NonEmptyList, NonEmptyMap}
+import cats.data.NonEmptyList
 
 import scala.annotation.tailrec
-import scala.collection.immutable.TreeSeqMap
+import butorrent4s.Bencode
+import butorrent4s.Bencode.*
 
-// AST for the valid data types of Bencoded data.
-enum BencodeData {
-  case BenString(v: String)
-  case BenInteger(v: Long)
-  case BenList(v: List[BencodeData])
-  case BenDict(v: Map[BenString, BencodeData])
-}
+import java.nio.charset.Charset
 
 type ParseResult[+A] = Option[(A, List[Char])]
 
-def decode(rawInput: String): ParseResult[BencodeData] = {
+def decode(rawInput: String): ParseResult[Bencode] = {
   parserChoice(rawInput.toList)
 }
 
 // choice / alternative by peeking on first next char without consuming it.
-def parserChoice(input: List[Char]): ParseResult[BencodeData] = {
+def parserChoice(input: List[Char]): ParseResult[Bencode] = {
   input match
     case 'i' :: _            => parserInteger(input)
     case 'l' :: _            => parserList(input)
@@ -43,7 +38,7 @@ def parserChoice(input: List[Char]): ParseResult[BencodeData] = {
 
 def parserByteString(
     input: List[Char]
-): ParseResult[BencodeData.BenString] = {
+): ParseResult[BString] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Byte_Strings
   //
   // Byte strings are encoded as follows: <string length encoded in base ten ASCII>:<string data>
@@ -56,7 +51,7 @@ def parserByteString(
   def loop(
       in: List[Char],
       digitsSeen: List[Char]
-  ): ParseResult[BencodeData.BenString] = {
+  ): ParseResult[BString] = {
     in match {
       // Reached the ':' and found some digits.
       case ':' :: xs if digitsSeen.nonEmpty =>
@@ -74,7 +69,10 @@ def parserByteString(
           .map { len =>
             val (parsed, remaining) = xs.splitAt(len)
 
-            (BencodeData.BenString(String(parsed.toArray)), remaining)
+            (
+              Bencode.BString(String(parsed.toArray)),
+              remaining
+            )
           }
 
       // Next char is a digit, accumulate it, check next.
@@ -91,7 +89,7 @@ def parserByteString(
 
 def parserInteger(
     input: List[Char]
-): ParseResult[BencodeData.BenInteger] = {
+): ParseResult[BInteger] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Integers
   //
   // Integers are encoded as follows: i<integer encoded in base ten ASCII>e
@@ -116,7 +114,7 @@ def parserInteger(
       isNegative: Boolean,
       in: List[Char],
       digitsSeen: NonEmptyList[Char]
-  ): ParseResult[BencodeData.BenInteger] = {
+  ): ParseResult[BInteger] = {
     in match {
       case 'e' :: unparsed =>
         val digits = digitsSeen.reverse
@@ -128,7 +126,7 @@ def parserInteger(
           else digits
 
         String(numberToParse.toList.toArray).toLongOption
-          .map(p => (BencodeData.BenInteger(p), unparsed))
+          .map(p => (Bencode.BInteger(p), unparsed))
 
       case x :: xs if x.isDigit =>
         loop(
@@ -147,7 +145,7 @@ def parserInteger(
     //  1. exactly zero encoded.
     //  2. anything else starting with zero, invalid.
     //  2. -0  -> no negative zero concept.
-    case 'i' :: '0' :: 'e' :: xs => Some((BencodeData.BenInteger(0L), xs))
+    case 'i' :: '0' :: 'e' :: xs => Some((BInteger(0L), xs))
     case 'i' :: '0' :: x :: xs   => None
     case 'i' :: '-' :: '0' :: xs => None
 
@@ -171,7 +169,7 @@ def parserInteger(
   }
 }
 
-def parserList(input: List[Char]): ParseResult[BencodeData.BenList] = {
+def parserList(input: List[Char]): ParseResult[BList] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Lists
   //
   // Lists are encoded as follows: l<bencoded values>e
@@ -195,11 +193,11 @@ def parserList(input: List[Char]): ParseResult[BencodeData.BenList] = {
   @tailrec
   def loop(
       in: List[Char],
-      elems: List[BencodeData]
-  ): ParseResult[BencodeData.BenList] = {
+      elems: List[Bencode]
+  ): ParseResult[BList] = {
     in match
       case 'e' :: unparsed =>
-        Some((BencodeData.BenList(elems.reverse), unparsed))
+        Some((BList(elems.reverse), unparsed))
 
       case _ =>
         // composition step, one parser after the next, monadic bind, flatmap, etc
@@ -218,7 +216,7 @@ def parserList(input: List[Char]): ParseResult[BencodeData.BenList] = {
     case _         => None
 }
 
-def parserDictionary(input: List[Char]): ParseResult[BencodeData.BenDict] = {
+def parserDictionary(input: List[Char]): ParseResult[BDictionary] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Dictionaries
   //
   // Dictionaries are encoded as follows: d<bencoded string><bencoded element>e
@@ -236,11 +234,11 @@ def parserDictionary(input: List[Char]): ParseResult[BencodeData.BenDict] = {
   @tailrec
   def loop(
       in: List[Char],
-      elems: TreeSeqMap[BencodeData.BenString, BencodeData]
-  ): ParseResult[BencodeData.BenDict] = {
+      elems: List[(BString, Bencode)]
+  ): ParseResult[BDictionary] = {
     in match
       case 'e' :: unparsed =>
-        Some((BencodeData.BenDict(elems), unparsed))
+        Some((BDictionary(elems.reverse), unparsed))
 
       case _ =>
         // composition step, one parser after the next, monadic bind, flatmap, etc
@@ -248,18 +246,29 @@ def parserDictionary(input: List[Char]): ParseResult[BencodeData.BenDict] = {
 
         parserByteString(in) match {
           case Some((parsedKey, unparsed)) =>
-            parserChoice(unparsed) match {
-              case Some((parsedValue, unparsed)) =>
-                loop(in = unparsed, elems = elems + ((parsedKey, parsedValue)))
+            // enforce ordering (lexicographic) of the dict keys, also no duplicates:
+            val isNewKeyValid =
+              elems.headOption
+                .map { (prevKey, _) =>
+                  parsedKey.v > prevKey.v
+                }
+                .getOrElse(true)
 
-              case None => None
-            }
+            if isNewKeyValid then
+              // read the value:
+              parserChoice(unparsed) match {
+                case Some((parsedValue, unparsed)) =>
+                  loop(in = unparsed, elems = (parsedKey, parsedValue) :: elems)
+
+                case None => None
+              }
+            else None
 
           case None => None
         }
   }
 
   input match
-    case 'd' :: xs => loop(in = xs, elems = TreeSeqMap.empty)
+    case 'd' :: xs => loop(in = xs, elems = List.empty)
     case _         => None
 }

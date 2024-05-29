@@ -1,9 +1,9 @@
 package butorrent4s
 
-import BencodeData.*
+import Bencode.*
 
 def resultOk[A](v: A, r: String): ParseResult[A] = Some((v, r.toList))
-def resultBad: ParseResult[BencodeData] = None
+def resultBad: ParseResult[Bencode] = None
 
 class DecoderTests extends munit.FunSuite {
 
@@ -25,22 +25,22 @@ class DecoderTests extends munit.FunSuite {
   test("parserByteString ✔ - valid inputs") {
     assertEquals(
       parserByteString("1:s".toList),
-      resultOk(BenString("s"), "")
+      resultOk(BString("s"), "")
     )
 
     assertEquals(
       parserByteString("0:".toList),
-      resultOk(BenString(""), "")
+      resultOk(BString(""), "")
     )
 
     assertEquals(
       parserByteString("2:ss".toList),
-      resultOk(BenString("ss"), "")
+      resultOk(BString("ss"), "")
     )
 
     assertEquals(
       parserByteString("10:ssssssssss".toList),
-      resultOk(BenString("ssssssssss"), "")
+      resultOk(BString("ssssssssss"), "")
     )
 
     // these 2 tests now pass since the parse string function
@@ -48,12 +48,12 @@ class DecoderTests extends munit.FunSuite {
     // the info requested to parse. Doesn't care if there's trash afterwards.
     assertEquals(
       parserByteString("0:ss".toList),
-      resultOk(BenString(""), "ss")
+      resultOk(BString(""), "ss")
     )
 
     assertEquals(
       parserByteString("1:ss".toList),
-      resultOk(BenString("s"), "s")
+      resultOk(BString("s"), "s")
     )
 
     // todo: test limits of Ints. As is currently represented I can't even
@@ -83,32 +83,32 @@ class DecoderTests extends munit.FunSuite {
   test("parserInteger ✔ - valid inputs") {
     assertEquals(
       parserInteger("i1e".toList),
-      resultOk(BenInteger(1L), "")
+      resultOk(BInteger(1L), "")
     )
 
     assertEquals(
       parserInteger("i10e".toList),
-      resultOk(BenInteger(10L), "")
+      resultOk(BInteger(10L), "")
     )
 
     assertEquals(
       parserInteger("i9999999999e:".toList),
-      resultOk(BenInteger(9999999999L), ":")
+      resultOk(BInteger(9999999999L), ":")
     )
 
     assertEquals(
       parserInteger("i0e".toList),
-      resultOk(BenInteger(0L), "")
+      resultOk(BInteger(0L), "")
     )
 
     assertEquals(
       parserInteger("i-50e".toList),
-      resultOk(BenInteger(-50L), "")
+      resultOk(BInteger(-50L), "")
     )
 
     assertEquals(
       parserInteger("i-9999999999e:".toList),
-      resultOk(BenInteger(-9999999999L), ":")
+      resultOk(BInteger(-9999999999L), ":")
     )
   }
 
@@ -132,19 +132,19 @@ class DecoderTests extends munit.FunSuite {
   test("parserList ✔ - valid inputs") {
     assertEquals(
       parserList("le".toList),
-      resultOk(BenList(List.empty), "")
+      resultOk(BList(List.empty), "")
     )
 
     assertEquals(
       parserList("lee".toList),
-      resultOk(BenList(List.empty), "e")
+      resultOk(BList(List.empty), "e")
     )
 
     assertEquals(
       parserList("l0:e".toList),
       resultOk(
-        BenList(
-          BenString("") ::
+        BList(
+          BString("") ::
             Nil
         ),
         ""
@@ -154,14 +154,95 @@ class DecoderTests extends munit.FunSuite {
     assertEquals(
       parserList("l0:2:ssi1elee".toList),
       resultOk(
-        BenList(
-          BenString("") ::
-            BenString("ss") ::
-            BenInteger(1L) ::
-            BenList(Nil) ::
+        BList(
+          BString("") ::
+            BString("ss") ::
+            BInteger(1L) ::
+            BList(Nil) ::
             Nil
         ),
         ""
+      )
+    )
+  }
+
+  test("parserDict ❌ - invalid inputs") {
+    assertEquals(parserDictionary("d".toList), resultBad)
+    assertEquals(parserDictionary("e".toList), resultBad)
+
+    assertEquals(parserDictionary("die".toList), resultBad)
+    assertEquals(parserDictionary("did".toList), resultBad)
+
+    assertEquals(parserDictionary("dld".toList), resultBad)
+    assertEquals(parserDictionary("dl5d".toList), resultBad)
+    assertEquals(parserDictionary("dlelel".toList), resultBad)
+
+    assertEquals(parserDictionary("d5".toList), resultBad)
+    assertEquals(parserDictionary("d5d".toList), resultBad)
+    assertEquals(parserDictionary("d1:e".toList), resultBad)
+    assertEquals(parserDictionary("d1:s".toList), resultBad)
+    assertEquals(parserDictionary("d1:sle".toList), resultBad)
+    assertEquals(parserDictionary("d1:sli0".toList), resultBad)
+
+    // currently passing, needs to fail.
+    assertEquals(
+      parserDictionary(
+        "d1:a1:a2:b2i2e2:b1i1e1:c1:ce".toList
+      ),
+      resultOk(
+        BDictionary(
+          BString("a") -> BString("a") ::
+            BString("b2") -> BInteger(2) :: // <- unordered
+            BString("b1") -> BInteger(1) ::
+            BString("c") -> BString("c") ::
+            Nil
+        ),
+        ""
+      )
+    )
+  }
+
+  test("parserDict ✔ - valid inputs") {
+    assertEquals(
+      parserDictionary("d0:lee".toList),
+      resultOk(
+        BDictionary(
+          List(
+            BString("") -> BList(Nil)
+          )
+        ),
+        ""
+      )
+    )
+
+    assertEquals(
+      parserDictionary("d0:i0eefuuu".toList),
+      resultOk(
+        BDictionary(
+          List(
+            BString("") -> BInteger(0)
+          )
+        ),
+        "fuuu"
+      )
+    )
+
+    assertEquals(
+      parserDictionary(
+        "d1:a3:hey2:b1i0e2:b2le1:cl3:mome1:dd2:fu3:baree...".toList
+      ),
+      resultOk(
+        BDictionary(
+          BString("a") -> BString("hey") ::
+            BString("b1") -> BInteger(0) ::
+            BString("b2") -> BList(Nil) ::
+            BString("c") -> BList(BString("mom") :: Nil) ::
+            BString("d") -> BDictionary(
+              BString("fu") -> BString("bar") :: Nil
+            ) ::
+            Nil
+        ),
+        "..."
       )
     )
   }

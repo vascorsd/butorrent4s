@@ -40,25 +40,25 @@ object Main extends IOApp {
                   .stdinUtf8[IO](1024)
                   .map(decode)
                   .evalMap {
-                    case Some((BencodeData.BenString(parsed), remaining)) =>
+                    case Some((Bencode.BString(parsed), remaining)) =>
                       IO.println(s"Decoded String: ${parsed}.") *>
                         IO.println(
                           s"Remaining unparsed input: ${remaining.toArray.mkString}"
                         )
 
-                    case Some((BencodeData.BenInteger(parsed), remaining)) =>
+                    case Some((Bencode.BInteger(parsed), remaining)) =>
                       IO.println(s"Decoded Integer: ${parsed}.") *>
                         IO.println(
                           s"Remaining unparsed input: ${remaining.toArray.mkString}"
                         )
 
-                    case Some((BencodeData.BenList(parsed), remaining)) =>
+                    case Some((Bencode.BList(parsed), remaining)) =>
                       IO.println(s"Decoded List: ${parsed}.") *>
                         IO.println(
                           s"Remaining unparsed input: ${remaining.toArray.mkString}"
                         )
 
-                    case Some((BencodeData.BenDict(parsed), remaining)) =>
+                    case Some((Bencode.BDictionary(parsed), remaining)) =>
                       IO.println(s"Decoded Dictionary: ${parsed}.") *>
                         IO.println(
                           s"Remaining unparsed input: ${remaining.toArray.mkString}"
