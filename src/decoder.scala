@@ -20,7 +20,6 @@ import java.nio.charset.Charset
 type ParseResult[+A] = Option[(A, List[Char])]
 
 def decode(rawInput: String): ParseResult[Bencode] = {
-
   parserChoice(rawInput.toList)
 }
 
@@ -42,7 +41,7 @@ def parserByteString(
   // Byte strings are encoded as follows: <string length encoded in base ten ASCII>:<string data>
   // Note that there is no constant beginning delimiter, and no ending delimiter.
   //
-  //    Example: 4: spam represents the string "spam"
+  //    Example: 4:spam represents the string "spam"
   //    Example: 0: represents the empty string ""
 
   @tailrec

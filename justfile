@@ -30,6 +30,10 @@ run *INPUT:
 test:
     scala-cli test .
 
+# Clean workspace
+clean:
+    scala-cli clean .
+
 
 
 

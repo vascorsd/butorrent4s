@@ -20,6 +20,16 @@ class DecoderTests extends munit.FunSuite {
     assertEquals(parserByteString("s1".toList), resultBad)
     assertEquals(parserByteString("s1:".toList), resultBad)
     assertEquals(parserByteString("01:".toList), resultBad)
+
+    // making sure the only valid numbers are ascii decimal digits:
+    // Arabic-script digits - ٠١٢٣٤٥٦٧٨٩
+    // from: https://www.unicode.org/terminology/digits.html
+    assertEquals(
+      parserByteString(
+        "١:s".toList
+      ),
+      resultBad
+    )
   }
 
   test("parserByteString ✔ - valid inputs") {
@@ -75,6 +85,16 @@ class DecoderTests extends munit.FunSuite {
     assertEquals(
       parserInteger(
         "i000000000000000000000000000000000000000000000000000000000000000000000000000000000000001e".toList
+      ),
+      resultBad
+    )
+
+    // making sure the only valid numbers are ascii decimal digits:
+    // Arabic-script digits - ٠١٢٣٤٥٦٧٨٩
+    // from: https://www.unicode.org/terminology/digits.html
+    assertEquals(
+      parserInteger(
+        "i١٢e".toList
       ),
       resultBad
     )
