@@ -7,8 +7,9 @@ package butorrent4s
 //  - String - there's nothing saying that the string has a limit, or that it
 //             is only ascii or even utf8 or any other unicode encoding.
 //             It could just represent random bytes.
-//             So, lower the requirement to make suer we are passing along bytes and not
-//             Scala's String. That can be a conversion somewhere else.
+//
+//             todo: So, lower the requirement to make sure we are passing along bytes and not
+//                   Scala's String. That can be a conversion somewhere else.
 //
 //  - Integer - There's also nothing saying that there's a limit or size for the
 //              value, we could represent this as a BigDecimal, or a union of possible
@@ -31,6 +32,7 @@ enum Bencode:
 object Bencode:
   def bstring(s: String): Bencode = BString(s)
   def bstring(b: Array[Byte]): Bencode = BString(String(b))
+
   def binteger(l: Long): Bencode = BInteger(l)
 
   def blist(): Bencode = BList(List.empty)
@@ -38,6 +40,26 @@ object Bencode:
   def blist(elems: Bencode*): Bencode = BList(elems.toList)
   def blist(elems: List[Bencode]): Bencode = BList(elems)
 
-  def bdictionary() = BDictionary(Nil)
-  def bdictionary(k: BString, v: Bencode) = BDictionary(k -> v :: Nil)
-  def bdictionary(elems: (BString, Bencode)*) = BDictionary(elems.toList)
+  def bdictionary(): Bencode = BDictionary(Nil)
+  def bdictionary(k: BString, v: Bencode): Bencode = BDictionary(k -> v :: Nil)
+  def bdictionary(elems: (BString, Bencode)*): Bencode = BDictionary(
+    elems.toList
+  )
+
+  extension (lc: BList.type) {
+    def empty: Bencode = blist()
+  }
+
+  extension (l: BList) {
+    def isEmpty: Boolean = l.v.isEmpty
+    def nonEmpty: Boolean = l.v.nonEmpty
+  }
+
+  extension (lc: BDictionary.type) {
+    def empty: Bencode = bdictionary()
+  }
+
+  extension (d: BDictionary) {
+    def isEmpty: Boolean = d.v.isEmpty
+    def nonEmpty: Boolean = d.v.nonEmpty
+  }

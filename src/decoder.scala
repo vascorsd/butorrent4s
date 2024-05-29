@@ -20,6 +20,7 @@ import java.nio.charset.Charset
 type ParseResult[+A] = Option[(A, List[Char])]
 
 def decode(rawInput: String): ParseResult[Bencode] = {
+
   parserChoice(rawInput.toList)
 }
 

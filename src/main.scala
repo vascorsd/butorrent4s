@@ -34,47 +34,44 @@ object Main extends IOApp {
             IO.println("Version 10").as(ExitCode.Success)
 
           case Program.Decode(input) =>
-            val x = input match
-              case "-" =>
-                fs2.io
-                  .stdinUtf8[IO](1024)
-                  .map(decode)
-                  .evalMap {
-                    case Some((Bencode.BString(parsed), remaining)) =>
-                      IO.println(s"Decoded String: ${parsed}.") *>
-                        IO.println(
-                          s"Remaining unparsed input: ${remaining.toArray.mkString}"
-                        )
+            val source = input match
+              case "-" => fs2.io.stdinUtf8[IO](1024)
+              case _   => fs2.Stream.emit(input)
 
-                    case Some((Bencode.BInteger(parsed), remaining)) =>
-                      IO.println(s"Decoded Integer: ${parsed}.") *>
-                        IO.println(
-                          s"Remaining unparsed input: ${remaining.toArray.mkString}"
-                        )
+            val r = source
+              .map(decode)
+              .evalMap {
+                case Some((Bencode.BString(parsed), remaining)) =>
+                  IO.println(s"Decoded String: ${parsed}.") *>
+                    IO.println(
+                      s"Remaining unparsed input: ${remaining.toArray.mkString}"
+                    )
 
-                    case Some((Bencode.BList(parsed), remaining)) =>
-                      IO.println(s"Decoded List: ${parsed}.") *>
-                        IO.println(
-                          s"Remaining unparsed input: ${remaining.toArray.mkString}"
-                        )
+                case Some((Bencode.BInteger(parsed), remaining)) =>
+                  IO.println(s"Decoded Integer: ${parsed}.") *>
+                    IO.println(
+                      s"Remaining unparsed input: ${remaining.toArray.mkString}"
+                    )
 
-                    case Some((Bencode.BDictionary(parsed), remaining)) =>
-                      IO.println(s"Decoded Dictionary: ${parsed}.") *>
-                        IO.println(
-                          s"Remaining unparsed input: ${remaining.toArray.mkString}"
-                        )
+                case Some((Bencode.BList(parsed), remaining)) =>
+                  IO.println(s"Decoded List: ${parsed}.") *>
+                    IO.println(
+                      s"Remaining unparsed input: ${remaining.toArray.mkString}"
+                    )
 
-                    case None =>
-                      IO.println("Couldn't decode given input")
-                  }
-                  .compile
-                  .drain
+                case Some((Bencode.BDictionary(parsed), remaining)) =>
+                  IO.println(s"Decoded Dictionary: ${parsed}.") *>
+                    IO.println(
+                      s"Remaining unparsed input: ${remaining.toArray.mkString}"
+                    )
 
-              case _ => ??? // decode(input)
+                case None =>
+                  IO.println("Couldn't decode given input")
+              }
+              .compile
+              .drain
 
-            // testDecode()
-            x.as(ExitCode.Success)
-          // IO.println("Decoding...").as(ExitCode.Success)
+            r.as(ExitCode.Success)
 
           case Program.Encode(input) =>
             // encode(input)

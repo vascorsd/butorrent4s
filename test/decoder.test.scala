@@ -297,7 +297,7 @@ class DecoderTests extends munit.FunSuite {
 
     assertEquals(
       parserDictionary("de".toList),
-      resultOk(BDictionary(Nil), "")
+      resultOk(BDictionary.empty, "")
     )
   }
 }
