@@ -30,16 +30,16 @@ enum Bencode:
 
   override def toString: String = this match
     case BString(v) =>
-      s"BString(${String(v, "UTF-8")})"
+      s"bstring \"${String(v, "UTF-8")}\""
 
     case BInteger(v) =>
-      s"BInteger(${v})"
+      s"bint : ${v}"
 
     case BList(v) =>
-      s"BList(${v.map(_.toString()).mkString(", ")})"
+      s"blist [ ${v.map(_.toString()).mkString(", ")} ]"
 
     case BDictionary(v) =>
-      s"BDictionary(${v.map((k, v) => s"$k -> $v").mkString(", ")})"
+      s"bdict { ${v.map((k, v) => s"$k -> $v").mkString(", ")} }"
 
 object Bencode:
   def bstring(s: String): BString = BString(s.getBytes("UTF-8"))
