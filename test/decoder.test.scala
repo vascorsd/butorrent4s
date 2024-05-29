@@ -184,21 +184,31 @@ class DecoderTests extends munit.FunSuite {
     assertEquals(parserDictionary("d1:sle".toList), resultBad)
     assertEquals(parserDictionary("d1:sli0".toList), resultBad)
 
-    // currently passing, needs to fail.
+    // almost valid encoding, problem b2 key comes before b1, wich is unordered
     assertEquals(
       parserDictionary(
         "d1:a1:a2:b2i2e2:b1i1e1:c1:ce".toList
       ),
-      resultOk(
-        BDictionary(
-          BString("a") -> BString("a") ::
-            BString("b2") -> BInteger(2) :: // <- unordered
-            BString("b1") -> BInteger(1) ::
-            BString("c") -> BString("c") ::
-            Nil
-        ),
-        ""
-      )
+      resultBad,
+      ""
+    )
+
+    // duplicated key problem
+    assertEquals(
+      parserDictionary(
+        "d0:0:0:0:e".toList
+      ),
+      resultBad,
+      ""
+    )
+
+    // duplicated key problem not immediately after
+    assertEquals(
+      parserDictionary(
+        "d0:0:1:s0:0:1:se".toList
+      ),
+      resultBad,
+      ""
     )
   }
 
@@ -244,6 +254,50 @@ class DecoderTests extends munit.FunSuite {
         ),
         "..."
       )
+    )
+
+    // from spec examples:
+    assertEquals(
+      parserDictionary("d3:cow3:moo4:spam4:eggse".toList),
+      resultOk(
+        BDictionary(
+          BString("cow") -> BString("moo") ::
+            BString("spam") -> BString("eggs") ::
+            Nil
+        ),
+        ""
+      )
+    )
+
+    assertEquals(
+      parserDictionary("d4:spaml1:a1:bee".toList),
+      resultOk(
+        BDictionary(
+          BString("spam") -> BList(BString("a") :: BString("b") :: Nil) ::
+            Nil
+        ),
+        ""
+      )
+    )
+
+    assertEquals(
+      parserDictionary(
+        "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee".toList
+      ),
+      resultOk(
+        BDictionary(
+          BString("publisher") -> BString("bob") ::
+            BString("publisher-webpage") -> BString("www.example.com") ::
+            BString("publisher.location") -> BString("home") ::
+            Nil
+        ),
+        ""
+      )
+    )
+
+    assertEquals(
+      parserDictionary("de".toList),
+      resultOk(BDictionary(Nil), "")
     )
   }
 }

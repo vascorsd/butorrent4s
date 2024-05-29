@@ -5,9 +5,6 @@
 //   - decode main entry point should decide which specific parsing to do.
 //   - need to limit amount of info that can be pushed into us, to protect against infinite input
 //   - probably change option to Eithers with specific error information
-//   - output should return remaining input that has not being parsed. this will allow composition.
-//     And also allows to replace the size check of the parse string.
-//   - Use other encoding besides Lists...
 //   - replace all of it by cats parser or any other custom parser combinators logic... (?)
 
 package butorrent4s
@@ -119,14 +116,11 @@ def parserInteger(
       case 'e' :: unparsed =>
         val digits = digitsSeen.reverse
 
-        // we need to recover the negative encoding since the acc only has digits,
-        // not the negative sign.
-        val numberToParse =
-          if isNegative then '-' :: digits
-          else digits
+        // we need to recover the negative encoding for the number
+        def negate(l: Long) = if isNegative then -l else l
 
-        String(numberToParse.toList.toArray).toLongOption
-          .map(p => (Bencode.BInteger(p), unparsed))
+        String(digits.toList.toArray).toLongOption
+          .map(p => (Bencode.BInteger(negate(p)), unparsed))
 
       case x :: xs if x.isDigit =>
         loop(
@@ -242,7 +236,7 @@ def parserDictionary(input: List[Char]): ParseResult[BDictionary] = {
 
       case _ =>
         // composition step, one parser after the next, monadic bind, flatmap, etc
-        // note: manually unroll since compiler can't work out the flatmaps
+        // note: manually unrolled since compiler can't work out the flatmaps
 
         parserByteString(in) match {
           case Some((parsedKey, unparsed)) =>
