@@ -3,6 +3,8 @@
 
 package butorrent4s
 
+import java.util.Comparator
+
 // notes:
 //  - String - there's nothing saying that the string has a limit, or that it
 //             is only ascii or even utf8 or any other unicode encoding.
@@ -24,30 +26,32 @@ package butorrent4s
 //                 BString to be raw bytes, I'm not sure how it's gonna look...
 
 enum Bencode:
-  case BString(v: String)
+  case BString(v: Array[Byte])
   case BInteger(v: Long)
   case BList(v: List[Bencode])
   case BDictionary(v: List[(BString, Bencode)])
 
 object Bencode:
-  def bstring(s: String): Bencode = BString(s)
-  def bstring(b: Array[Byte]): Bencode = BString(String(b))
+  def bstring(s: String): BString = BString(s.getBytes("UTF-8"))
+  def bstring(b: Array[Byte]): BString = BString(b)
 
-  def binteger(l: Long): Bencode = BInteger(l)
+  def binteger(l: Long): BInteger = BInteger(l)
 
-  def blist(): Bencode = BList(List.empty)
-  def blist(elem: Bencode): Bencode = BList(elem :: Nil)
-  def blist(elems: Bencode*): Bencode = BList(elems.toList)
-  def blist(elems: List[Bencode]): Bencode = BList(elems)
+  def blist(): BList = BList(List.empty)
+  def blist(elem: Bencode): BList = BList(elem :: Nil)
+  def blist(elems: Bencode*): BList = BList(elems.toList)
+  def blist(elems: List[Bencode]): BList = BList(elems)
 
-  def bdictionary(): Bencode = BDictionary(Nil)
-  def bdictionary(k: BString, v: Bencode): Bencode = BDictionary(k -> v :: Nil)
-  def bdictionary(elems: (BString, Bencode)*): Bencode = BDictionary(
+  def bdictionary(): BDictionary = BDictionary(Nil)
+  def bdictionary(k: BString, v: Bencode): BDictionary = BDictionary(
+    k -> v :: Nil
+  )
+  def bdictionary(elems: (BString, Bencode)*): BDictionary = BDictionary(
     elems.toList
   )
 
   extension (lc: BList.type) {
-    def empty: Bencode = blist()
+    def empty: BList = blist()
   }
 
   extension (l: BList) {
@@ -56,10 +60,14 @@ object Bencode:
   }
 
   extension (lc: BDictionary.type) {
-    def empty: Bencode = bdictionary()
+    def empty: BDictionary = bdictionary()
   }
 
   extension (d: BDictionary) {
     def isEmpty: Boolean = d.v.isEmpty
     def nonEmpty: Boolean = d.v.nonEmpty
+  }
+
+  given Ordering[BString] = Ordering.by[BString, String] { bs =>
+    String(bs.v, "UTF-8")
   }
