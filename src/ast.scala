@@ -10,9 +10,6 @@ import java.util.Comparator
 //             is only ascii or even utf8 or any other unicode encoding.
 //             It could just represent random bytes.
 //
-//             todo: So, lower the requirement to make sure we are passing along bytes and not
-//                   Scala's String. That can be a conversion somewhere else.
-//
 //  - Integer - There's also nothing saying that there's a limit or size for the
 //              value, we could represent this as a BigDecimal, or a union of possible
 //              types, like Integer | Long | BigDecimal.
@@ -31,6 +28,19 @@ enum Bencode:
   case BList(v: List[Bencode])
   case BDictionary(v: List[(BString, Bencode)])
 
+  override def toString: String = this match
+    case BString(v) =>
+      s"BString(${String(v, "UTF-8")})"
+
+    case BInteger(v) =>
+      s"BInteger(${v})"
+
+    case BList(v) =>
+      s"BList(${v.map(_.toString()).mkString(", ")})"
+
+    case BDictionary(v) =>
+      s"BDictionary(${v.map((k, v) => s"$k -> $v").mkString(", ")})"
+
 object Bencode:
   def bstring(s: String): BString = BString(s.getBytes("UTF-8"))
   def bstring(b: Array[Byte]): BString = BString(b)
@@ -48,6 +58,10 @@ object Bencode:
   )
   def bdictionary(elems: (BString, Bencode)*): BDictionary = BDictionary(
     elems.toList
+  )
+
+  def bdictionary(elems: List[(BString, Bencode)]): BDictionary = BDictionary(
+    elems
   )
 
   extension (lc: BList.type) {

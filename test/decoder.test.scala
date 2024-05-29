@@ -6,71 +6,68 @@ extension (s: String) {
   def in: Array[Byte] = s.getBytes("UTF-8")
 }
 
-def resultOk[A](v: A, r: String): ParseResult[A] = Some((v, r.toList))
-def resultOk2[A](v: A, r: Array[Byte]): ParseResult2[A] = Some((v, r))
-
+def resultOk[A](v: A, r: Array[Byte]): ParseResult[A] = Some((v, r))
 def resultBad: ParseResult[Bencode] = None
-def resultBad2: ParseResult2[Bencode] = None
 
 class DecoderTests extends munit.FunSuite {
 
   test("parserByteString ❌ - invalid inputs") {
-    assertEquals(parserByteString("".toList), resultBad)
-    assertEquals(parserByteString(":".toList), resultBad)
-    assertEquals(parserByteString("s".toList), resultBad)
-    assertEquals(parserByteString("ss".toList), resultBad)
-    assertEquals(parserByteString("s:".toList), resultBad)
-    assertEquals(parserByteString("ss:".toList), resultBad)
-    assertEquals(parserByteString("1".toList), resultBad)
-    assertEquals(parserByteString("1s".toList), resultBad)
-    assertEquals(parserByteString("1s:".toList), resultBad)
-    assertEquals(parserByteString("s1".toList), resultBad)
-    assertEquals(parserByteString("s1:".toList), resultBad)
-    assertEquals(parserByteString("01:".toList), resultBad)
+    assertEquals(byteStringP("".in), resultBad)
+    assertEquals(byteStringP(":".in), resultBad)
+    assertEquals(byteStringP("s".in), resultBad)
+    assertEquals(byteStringP("ss".in), resultBad)
+    assertEquals(byteStringP("s:".in), resultBad)
+    assertEquals(byteStringP("ss:".in), resultBad)
+    assertEquals(byteStringP("1".in), resultBad)
+    assertEquals(byteStringP("1s".in), resultBad)
+    assertEquals(byteStringP("1s:".in), resultBad)
+    assertEquals(byteStringP("s1".in), resultBad)
+    assertEquals(byteStringP("s1:".in), resultBad)
+    assertEquals(byteStringP("01:".in), resultBad)
 
     // making sure the only valid numbers are ascii decimal digits:
     // Arabic-script digits - ٠١٢٣٤٥٦٧٨٩
     // from: https://www.unicode.org/terminology/digits.html
     assertEquals(
-      parserByteString(
-        "١:s".toList
+      byteStringP(
+        "١:s".in
       ),
       resultBad
     )
   }
 
-  test("parserByteString ✔ - valid inputs") {
+  test("byteStringP ✔ - valid inputs") {
     assertEquals(
-      parserByteString("1:s".toList),
-      resultOk(BString("s"), "")
+      byteStringP("1:s".in),
+      resultOk(bstring("s"), "".in)
     )
 
     assertEquals(
-      parserByteString("0:".toList),
-      resultOk(BString(""), "")
+      byteStringP("0:".in),
+      resultOk(bstring(""), "".in)
     )
 
     assertEquals(
-      parserByteString("2:ss".toList),
-      resultOk(BString("ss"), "")
+      byteStringP("2:ss".in),
+      resultOk(bstring("ss"), "".in)
     )
 
     assertEquals(
-      parserByteString("10:ssssssssss".toList),
-      resultOk(BString("ssssssssss"), "")
+      byteStringP("10:ssssssssss".in),
+      resultOk(bstring("ssssssssss"), "".in)
     )
 
     // these 2 tests now pass since the parse string function
     // as become less eager and only checks that there's at least
     // the info requested to parse. Doesn't care if there's trash afterwards.
     assertEquals(
-      parserByteString("0:ss".toList),
-      resultOk(BString(""), "ss")
+      byteStringP("0:ss".in),
+      resultOk(bstring(""), "ss".in)
     )
 
     assertEquals(
-      parserByteString("1:ss".toList),
-      resultOk(BString("s"), "s")
+      byteStringP("1:ss".in),
+      resultOk(bstring("s"), "s".in)
     )
 
     // todo: test limits of Ints. As is currently represented I can't even
@@ -79,249 +76,239 @@ class DecoderTests extends munit.FunSuite {
   }
 
   test("parserInteger ❌ - invalid inputs") {
-    assertEquals(parserInteger2("i010e".in), resultBad2)
-    assertEquals(parserInteger2("iss1e".in), resultBad2)
-    assertEquals(parserInteger2("i5ie".in), resultBad2)
+    assertEquals(integerP("i010e".in), resultBad)
+    assertEquals(integerP("iss1e".in), resultBad)
+    assertEquals(integerP("i5ie".in), resultBad)
     assertEquals(
-      parserInteger2("i0101010101010000000000000".in),
-      resultBad2
+      integerP("i0101010101010000000000000".in),
+      resultBad
     )
 
-    assertEquals(parserInteger2("i-0e".in), resultBad2)
+    assertEquals(integerP("i-0e".in), resultBad)
 
-    assertEquals(parserInteger2("i-s5e".in), resultBad2)
-    assertEquals(parserInteger2("i-i1e".in), resultBad2)
+    assertEquals(integerP("i-s5e".in), resultBad)
+    assertEquals(integerP("i-i1e".in), resultBad)
 
     assertEquals(
-      parserInteger2(
+      integerP(
         "i000000000000000000000000000000000000000000000000000000000000000000000000000000000000001e".in
       ),
-      resultBad2
+      resultBad
     )
 
     // making sure the only valid numbers are ascii decimal digits:
     // Arabic-script digits - ٠١٢٣٤٥٦٧٨٩
     // from: https://www.unicode.org/terminology/digits.html
     assertEquals(
-      parserInteger2(
+      integerP(
         "i١٢e".in
       ),
-      resultBad2
+      resultBad
     )
   }
 
   test("parserInteger ✔ - valid inputs") {
-    val Some((int1, r1)) = parserInteger2("i1e".in): @unchecked
-    assertEquals(int1, BInteger(1L))
+    val Some((int1, r1)) = integerP("i1e".in): @unchecked
+    assertEquals(int1, binteger(1L))
     assertEquals(String(r1), "")
 
-    val Some((int2, r2)) = parserInteger2("i10e".in): @unchecked
-    assertEquals(int2, BInteger(10L))
+    val Some((int2, r2)) = integerP("i10e".in): @unchecked
+    assertEquals(int2, binteger(10L))
     assertEquals(String(r1), "")
 
-    val Some((int3, r3)) = parserInteger2("i9999999999e:".in): @unchecked
-    assertEquals(int3, BInteger(9999999999L))
+    val Some((int3, r3)) = integerP("i9999999999e:".in): @unchecked
+    assertEquals(int3, binteger(9999999999L))
     assertEquals(String(r3), ":")
 
-    val Some((int4, r4)) = parserInteger2("i0e".in): @unchecked
-    assertEquals(int4, BInteger(0L))
+    val Some((int4, r4)) = integerP("i0e".in): @unchecked
+    assertEquals(int4, binteger(0L))
     assertEquals(String(r4), "")
 
-    val Some((int5, r5)) = parserInteger2("i-50e".in): @unchecked
-    assertEquals(int5, BInteger(-50L))
+    val Some((int5, r5)) = integerP("i-50e".in): @unchecked
+    assertEquals(int5, binteger(-50L))
     assertEquals(String(r5), "")
 
-    val Some((int6, r6)) = parserInteger2("i-9999999999e:".in): @unchecked
-    assertEquals(int6, BInteger(-9999999999L))
+    val Some((int6, r6)) = integerP("i-9999999999e:".in): @unchecked
+    assertEquals(int6, binteger(-9999999999L))
     assertEquals(String(r6), ":")
   }
 
   test("parserList ❌ - invalid inputs") {
-    assertEquals(parserList("".toList), resultBad)
-    assertEquals(parserList("e".toList), resultBad)
-    assertEquals(parserList("l".toList), resultBad)
+    assertEquals(listP("".in), resultBad)
+    assertEquals(listP("e".in), resultBad)
+    assertEquals(listP("l".in), resultBad)
 
-    assertEquals(parserList("l:e".toList), resultBad)
-    assertEquals(parserList("l1e".toList), resultBad)
-    assertEquals(parserList("l1:e".toList), resultBad)
+    assertEquals(listP("l:e".in), resultBad)
+    assertEquals(listP("l1e".in), resultBad)
+    assertEquals(listP("l1:e".in), resultBad)
 
-    assertEquals(parserList("lie".toList), resultBad)
-    assertEquals(parserList("li-ee".toList), resultBad)
-    assertEquals(parserList("li10e5e".toList), resultBad)
+    assertEquals(listP("lie".in), resultBad)
+    assertEquals(listP("li-ee".in), resultBad)
+    assertEquals(listP("li10e5e".in), resultBad)
 
-    assertEquals(parserList("lle".toList), resultBad)
-    assertEquals(parserList("ll5e".toList), resultBad)
+    assertEquals(listP("lle".in), resultBad)
+    assertEquals(listP("ll5e".in), resultBad)
   }
 
   test("parserList ✔ - valid inputs") {
     assertEquals(
-      parserList("le".toList),
-      resultOk(BList(List.empty), "")
+      listP("le".in),
+      resultOk(blist(), "".in)
     )
 
     assertEquals(
-      parserList("lee".toList),
-      resultOk(BList(List.empty), "e")
+      listP("lee".in),
+      resultOk(blist(), "e".in)
     )
 
     assertEquals(
-      parserList("l0:e".toList),
+      listP("l0:e".in),
       resultOk(
-        BList(
-          BString("") ::
-            Nil
+        blist(
+          bstring("")
         ),
-        ""
+        "".in
       )
     )
 
     assertEquals(
-      parserList("l0:2:ssi1elee".toList),
+      listP("l0:2:ssi1elee".in),
       resultOk(
-        BList(
-          BString("") ::
-            BString("ss") ::
-            BInteger(1L) ::
-            BList(Nil) ::
-            Nil
+        blist(
+          bstring(""),
+          bstring("ss"),
+          binteger(1L),
+          blist()
         ),
-        ""
+        "".in
       )
     )
   }
 
   test("parserDict ❌ - invalid inputs") {
-    assertEquals(parserDictionary("d".toList), resultBad)
-    assertEquals(parserDictionary("e".toList), resultBad)
+    assertEquals(dictionaryP("d".in), resultBad)
+    assertEquals(dictionaryP("e".in), resultBad)
 
-    assertEquals(parserDictionary("die".toList), resultBad)
-    assertEquals(parserDictionary("did".toList), resultBad)
+    assertEquals(dictionaryP("die".in), resultBad)
+    assertEquals(dictionaryP("did".in), resultBad)
 
-    assertEquals(parserDictionary("dld".toList), resultBad)
-    assertEquals(parserDictionary("dl5d".toList), resultBad)
-    assertEquals(parserDictionary("dlelel".toList), resultBad)
+    assertEquals(dictionaryP("dld".in), resultBad)
+    assertEquals(dictionaryP("dl5d".in), resultBad)
+    assertEquals(dictionaryP("dlelel".in), resultBad)
 
-    assertEquals(parserDictionary("d5".toList), resultBad)
-    assertEquals(parserDictionary("d5d".toList), resultBad)
-    assertEquals(parserDictionary("d1:e".toList), resultBad)
-    assertEquals(parserDictionary("d1:s".toList), resultBad)
-    assertEquals(parserDictionary("d1:sle".toList), resultBad)
-    assertEquals(parserDictionary("d1:sli0".toList), resultBad)
+    assertEquals(dictionaryP("d5".in), resultBad)
+    assertEquals(dictionaryP("d5d".in), resultBad)
+    assertEquals(dictionaryP("d1:e".in), resultBad)
+    assertEquals(dictionaryP("d1:s".in), resultBad)
+    assertEquals(dictionaryP("d1:sle".in), resultBad)
+    assertEquals(dictionaryP("d1:sli0".in), resultBad)
 
     // almost valid encoding, problem b2 key comes before b1, wich is unordered
     assertEquals(
-      parserDictionary(
-        "d1:a1:a2:b2i2e2:b1i1e1:c1:ce".toList
+      dictionaryP(
+        "d1:a1:a2:b2i2e2:b1i1e1:c1:ce".in
       ),
       resultBad,
-      ""
+      "".in
     )
 
     // duplicated key problem
     assertEquals(
-      parserDictionary(
-        "d0:0:0:0:e".toList
+      dictionaryP(
+        "d0:0:0:0:e".in
       ),
       resultBad,
-      ""
+      "".in
     )
 
     // duplicated key problem not immediately after
     assertEquals(
-      parserDictionary(
-        "d0:0:1:s0:0:1:se".toList
+      dictionaryP(
+        "d0:0:1:s0:0:1:se".in
       ),
       resultBad,
-      ""
+      "".in
     )
   }
 
   test("parserDict ✔ - valid inputs") {
     assertEquals(
-      parserDictionary("d0:lee".toList),
+      dictionaryP("d0:lee".in),
       resultOk(
-        BDictionary(
-          List(
-            BString("") -> BList(Nil)
-          )
+        bdictionary(
+          bstring("") -> blist()
         ),
-        ""
+        "".in
       )
     )
 
     assertEquals(
-      parserDictionary("d0:i0eefuuu".toList),
+      dictionaryP("d0:i0eefuuu".in),
       resultOk(
-        BDictionary(
-          List(
-            BString("") -> BInteger(0)
-          )
+        bdictionary(
+          bstring("") -> binteger(0)
         ),
-        "fuuu"
+        "fuuu".in
       )
     )
 
     assertEquals(
-      parserDictionary(
-        "d1:a3:hey2:b1i0e2:b2le1:cl3:mome1:dd2:fu3:baree...".toList
+      dictionaryP(
+        "d1:a3:hey2:b1i0e2:b2le1:cl3:mome1:dd2:fu3:baree...".in
       ),
       resultOk(
-        BDictionary(
-          BString("a") -> BString("hey") ::
-            BString("b1") -> BInteger(0) ::
-            BString("b2") -> BList(Nil) ::
-            BString("c") -> BList(BString("mom") :: Nil) ::
-            BString("d") -> BDictionary(
-              BString("fu") -> BString("bar") :: Nil
-            ) ::
-            Nil
+        bdictionary(
+          bstring("a") -> bstring("hey"),
+          bstring("b1") -> binteger(0),
+          bstring("b2") -> blist(),
+          bstring("c") -> blist(bstring("mom")),
+          bstring("d") -> bdictionary(
+            bstring("fu") -> bstring("bar")
+          )
         ),
-        "..."
+        "...".in
       )
     )
 
     // from spec examples:
     assertEquals(
-      parserDictionary("d3:cow3:moo4:spam4:eggse".toList),
+      dictionaryP("d3:cow3:moo4:spam4:eggse".in),
       resultOk(
-        BDictionary(
-          BString("cow") -> BString("moo") ::
-            BString("spam") -> BString("eggs") ::
-            Nil
+        bdictionary(
+          bstring("cow") -> bstring("moo"),
+          bstring("spam") -> bstring("eggs")
         ),
-        ""
+        "".in
       )
     )
 
     assertEquals(
-      parserDictionary("d4:spaml1:a1:bee".toList),
+      dictionaryP("d4:spaml1:a1:bee".in),
       resultOk(
-        BDictionary(
-          BString("spam") -> BList(BString("a") :: BString("b") :: Nil) ::
-            Nil
+        bdictionary(
+          bstring("spam") -> blist(bstring("a"), bstring("b"))
         ),
-        ""
+        "".in
       )
     )
 
     assertEquals(
-      parserDictionary(
-        "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee".toList
+      dictionaryP(
+        "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee".in
       ),
       resultOk(
-        BDictionary(
-          BString("publisher") -> BString("bob") ::
-            BString("publisher-webpage") -> BString("www.example.com") ::
-            BString("publisher.location") -> BString("home") ::
-            Nil
+        bdictionary(
+          bstring("publisher") -> bstring("bob"),
+          bstring("publisher-webpage") -> bstring("www.example.com"),
+          bstring("publisher.location") -> bstring("home")
         ),
-        ""
+        "".in
       )
     )
 
     assertEquals(
-      parserDictionary("de".toList),
-      resultOk(BDictionary.empty, "")
+      dictionaryP("de".in),
+      resultOk(bdictionary(), "".in)
     )
   }
 }

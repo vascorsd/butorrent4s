@@ -39,30 +39,34 @@ object Main extends IOApp {
               case _   => fs2.Stream.emit(input)
 
             val r = source
-              .map(decode2)
+              .map(decode)
               .evalMap {
-                case Some((Bencode.BString(parsed), remaining)) =>
-                  IO.println(s"Decoded String: ${parsed}") *>
+                case Some((v @ Bencode.BString(parsed), remaining)) =>
+                  IO.println(s"toString: ${v}") *>
+                    IO.println(s"Decoded value: ${String(parsed)}") *>
                     IO.println(
-                      s"Remaining unparsed input: ${remaining.toArray.mkString}"
+                      s"Remaining unparsed input: ${String(remaining)}"
                     )
 
-                case Some((Bencode.BInteger(parsed), remaining)) =>
-                  IO.println(s"Decoded Integer: ${parsed}") *>
+                case Some((v @ Bencode.BInteger(parsed), remaining)) =>
+                  IO.println(s"toString: ${v}") *>
+                    IO.println(s"Decoded value: ${parsed}") *>
                     IO.println(
-                      s"Remaining unparsed input: ${remaining.toArray.mkString}"
+                      s"Remaining unparsed input: ${String(remaining)}"
                     )
 
-                case Some((Bencode.BList(parsed), remaining)) =>
-                  IO.println(s"Decoded List: ${parsed}") *>
+                case Some((v @ Bencode.BList(parsed), remaining)) =>
+                  IO.println(s"toString: ${v}") *>
+                    IO.println(s"Decoded value: ${parsed}") *>
                     IO.println(
-                      s"Remaining unparsed input: ${remaining.toArray.mkString}"
+                      s"Remaining unparsed input: ${String(remaining)}"
                     )
 
-                case Some((Bencode.BDictionary(parsed), remaining)) =>
-                  IO.println(s"Decoded Dictionary: ${parsed}") *>
+                case Some((v @ Bencode.BDictionary(parsed), remaining)) =>
+                  IO.println(s"toString: ${v}") *>
+                    IO.println(s"Decoded value: ${parsed}") *>
                     IO.println(
-                      s"Remaining unparsed input: ${remaining.toArray.mkString}"
+                      s"Remaining unparsed input: ${String(remaining)}"
                     )
 
                 case None =>
