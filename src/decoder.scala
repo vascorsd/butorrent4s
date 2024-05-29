@@ -9,28 +9,57 @@
 
 package butorrent4s
 
-import cats.data.NonEmptyList
-
 import scala.annotation.tailrec
 import butorrent4s.Bencode
 import butorrent4s.Bencode.*
 
-import java.nio.charset.Charset
-
 type ParseResult[+A] = Option[(A, List[Char])]
+type ParseResult2[+A] = Option[(A, Array[Byte])]
 
 def decode(rawInput: String): ParseResult[Bencode] = {
   parserChoice(rawInput.toList)
 }
 
+def decode2(input: Array[Byte]): ParseResult2[Bencode] = {
+  parserChoice2(input)
+}
+
+def decode2(input: String): ParseResult2[Bencode] = {
+  val bytes: Array[Byte] = input.getBytes("UTF-8")
+
+  parserChoice2(bytes)
+}
+
 // choice / alternative by peeking on first next char without consuming it.
 def parserChoice(input: List[Char]): ParseResult[Bencode] = {
   input match
-    case 'i' :: _            => parserInteger(input)
-    case 'l' :: _            => parserList(input)
-    case 'd' :: _            => parserDictionary(input)
-    case c :: _ if c.isDigit => parserByteString(input)
-    case _                   => None
+    case 'i' :: _                  => parserInteger(input)
+    case 'l' :: _                  => parserList(input)
+    case 'd' :: _                  => parserDictionary(input)
+    case c :: _ if isASCIIDigit(c) => parserByteString(input)
+    case _                         => None
+}
+
+private val i: Byte = 0x69 // 'i'
+private val l: Byte = 0x6c // 'l'
+private val d: Byte = 0x64 // 'd'
+private val e: Byte = 0x65 // 'e'
+private val zero: Byte = 0x30 // '0'
+private val nine: Byte = 0x39 // '9'
+private val minus: Byte = 0x2d // '-'
+private val colon: Byte = 0x3a // ':'
+
+private def isASCIIDigit(c: Byte) = zero <= c && c <= nine
+private def isASCIIDigit(c: Char) = '0' <= c && c <= '9'
+
+// choice / alternative by peeking on first next char without consuming it.
+def parserChoice2(input: Array[Byte]): ParseResult2[Bencode] = {
+  input match
+    case Array(`i`, _*)                  => parserInteger2(input)
+    case Array(`l`, _*)                  => ??? // parserList(input)
+    case Array(`d`, _*)                  => ??? // parserDictionary(input)
+    case Array(b, _*) if isASCIIDigit(b) => ??? // parserByteString(input)
+    case _                               => None
 }
 
 def parserByteString(
@@ -73,7 +102,7 @@ def parserByteString(
           }
 
       // Next char is a digit, accumulate it, check next.
-      case x :: xs if x.isDigit =>
+      case x :: xs if isASCIIDigit(x) =>
         loop(in = xs, digitsSeen = x :: digitsSeen)
 
       // No delimiter ':' and no digits, bad input
@@ -110,7 +139,7 @@ def parserInteger(
   def loop(
       isNegative: Boolean,
       in: List[Char],
-      digitsSeen: NonEmptyList[Char]
+      digitsSeen: List[Char]
   ): ParseResult[BInteger] = {
     in match {
       case 'e' :: unparsed =>
@@ -119,10 +148,10 @@ def parserInteger(
         // we need to recover the negative encoding for the number
         def negate(l: Long) = if isNegative then -l else l
 
-        String(digits.toList.toArray).toLongOption
+        String(digits.toArray).toLongOption
           .map(p => (Bencode.BInteger(negate(p)), unparsed))
 
-      case x :: xs if x.isDigit =>
+      case x :: xs if isASCIIDigit(x) =>
         loop(
           isNegative = isNegative,
           in = xs,
@@ -140,22 +169,101 @@ def parserInteger(
     //  2. anything else starting with zero, invalid.
     //  2. -0  -> no negative zero concept.
     case 'i' :: '0' :: 'e' :: xs => Some((BInteger(0L), xs))
-    case 'i' :: '0' :: x :: xs   => None
-    case 'i' :: '-' :: '0' :: xs => None
+    case 'i' :: '0' :: x :: _    => None
+    case 'i' :: '-' :: '0' :: _  => None
 
     // looping cases:
-    case 'i' :: '-' :: x :: xs if x.isDigit =>
+    case 'i' :: '-' :: x :: xs if isASCIIDigit(x) =>
       loop(
         isNegative = true,
         in = xs,
-        digitsSeen = NonEmptyList.one(x)
+        digitsSeen = x :: Nil
       )
 
-    case 'i' :: x :: xs if x.isDigit =>
+    case 'i' :: x :: xs if isASCIIDigit(x) =>
       loop(
         isNegative = false,
         in = xs,
-        digitsSeen = NonEmptyList.one(x)
+        digitsSeen = x :: Nil
+      )
+
+    case _ =>
+      None
+  }
+}
+
+def parserInteger2(
+    input: Array[Byte]
+): ParseResult2[BInteger] = {
+  // From spec at: https://wiki.theory.org/BitTorrentSpecification#Integers
+  //
+  // Integers are encoded as follows: i<integer encoded in base ten ASCII>e
+  // The initial i and trailing e are beginning and ending delimiters.
+  //
+  //    Example: i3e represents the integer "3"
+  //    Example: i-3e represents the integer "-3"
+  //
+  // i-0e is invalid. All encodings with a leading zero, such as i03e, are invalid, other than i0e,
+  // which of course corresponds to the integer "0".
+  //
+  //    NOTE: The maximum number of bit of this integer is unspecified, but to handle it as a signed 64bit
+  //    integer is mandatory to handle "large files" aka .torrent for more that 4Gbyte.
+
+  // notes / tldr:
+  // 1. number must be parsed to Long (64 bits) at least
+  // 2. leading 0 is bad
+  // 3. determine if negative number
+
+  @tailrec
+  def loop(
+      isNegative: Boolean,
+      in: Array[Byte],
+      digitsSeen: List[Byte]
+  ): ParseResult2[BInteger] = {
+    in match {
+      case Array(`e`, unparsed*) =>
+        val digits = digitsSeen.reverse.toArray
+
+        // we need to recover the negative encoding for the number
+        def negate(l: Long) = if isNegative then -l else l
+
+        String(digits, "UTF-8").toLongOption
+          .map(p => (Bencode.BInteger(negate(p)), unparsed.toArray))
+
+      case Array(x, xs*) if isASCIIDigit(x) =>
+        loop(
+          isNegative = isNegative,
+          in = xs.toArray,
+          digitsSeen = x :: digitsSeen
+        )
+
+      case _ =>
+        None
+    }
+  }
+
+  input match {
+    // unroll specific cases:
+    //  1. exactly zero encoded.
+    //  2. anything else starting with zero, invalid.
+    //  2. -0  -> no negative zero concept.
+    case Array(`i`, `zero`, `e`, xs*)    => Some((BInteger(0L), xs.toArray))
+    case Array(`i`, `zero`, _, _*)       => None
+    case Array(`i`, `minus`, `zero`, _*) => None
+
+    // looping cases:
+    case Array(`i`, `minus`, x, xs*) if isASCIIDigit(x) =>
+      loop(
+        isNegative = true,
+        in = xs.toArray,
+        digitsSeen = x :: Nil
+      )
+
+    case Array(`i`, x, xs*) if isASCIIDigit(x) =>
+      loop(
+        isNegative = false,
+        in = xs.toArray,
+        digitsSeen = x :: Nil
       )
 
     case _ =>

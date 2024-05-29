@@ -39,28 +39,28 @@ object Main extends IOApp {
               case _   => fs2.Stream.emit(input)
 
             val r = source
-              .map(decode)
+              .map(decode2)
               .evalMap {
                 case Some((Bencode.BString(parsed), remaining)) =>
-                  IO.println(s"Decoded String: ${parsed}.") *>
+                  IO.println(s"Decoded String: ${parsed}") *>
                     IO.println(
                       s"Remaining unparsed input: ${remaining.toArray.mkString}"
                     )
 
                 case Some((Bencode.BInteger(parsed), remaining)) =>
-                  IO.println(s"Decoded Integer: ${parsed}.") *>
+                  IO.println(s"Decoded Integer: ${parsed}") *>
                     IO.println(
                       s"Remaining unparsed input: ${remaining.toArray.mkString}"
                     )
 
                 case Some((Bencode.BList(parsed), remaining)) =>
-                  IO.println(s"Decoded List: ${parsed}.") *>
+                  IO.println(s"Decoded List: ${parsed}") *>
                     IO.println(
                       s"Remaining unparsed input: ${remaining.toArray.mkString}"
                     )
 
                 case Some((Bencode.BDictionary(parsed), remaining)) =>
-                  IO.println(s"Decoded Dictionary: ${parsed}.") *>
+                  IO.println(s"Decoded Dictionary: ${parsed}") *>
                     IO.println(
                       s"Remaining unparsed input: ${remaining.toArray.mkString}"
                     )

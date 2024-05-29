@@ -2,8 +2,15 @@ package butorrent4s
 
 import Bencode.*
 
+extension (s: String) {
+  def in: Array[Byte] = s.getBytes("UTF-8")
+}
+
 def resultOk[A](v: A, r: String): ParseResult[A] = Some((v, r.toList))
+def resultOk2[A](v: A, r: Array[Byte]): ParseResult2[A] = Some((v, r))
+
 def resultBad: ParseResult[Bencode] = None
+def resultBad2: ParseResult2[Bencode] = None
 
 class DecoderTests extends munit.FunSuite {
 
@@ -72,64 +79,61 @@ class DecoderTests extends munit.FunSuite {
   }
 
   test("parserInteger ❌ - invalid inputs") {
-    assertEquals(parserInteger("i010e".toList), resultBad)
-    assertEquals(parserInteger("iss1e".toList), resultBad)
-    assertEquals(parserInteger("i5ie".toList), resultBad)
-    assertEquals(parserInteger("i0101010101010000000000000".toList), resultBad)
+    assertEquals(parserInteger2("i010e".in), resultBad2)
+    assertEquals(parserInteger2("iss1e".in), resultBad2)
+    assertEquals(parserInteger2("i5ie".in), resultBad2)
+    assertEquals(
+      parserInteger2("i0101010101010000000000000".in),
+      resultBad2
+    )
 
-    assertEquals(parserInteger("i-0e".toList), resultBad)
+    assertEquals(parserInteger2("i-0e".in), resultBad2)
 
-    assertEquals(parserInteger("i-s5e".toList), resultBad)
-    assertEquals(parserInteger("i-i1e".toList), resultBad)
+    assertEquals(parserInteger2("i-s5e".in), resultBad2)
+    assertEquals(parserInteger2("i-i1e".in), resultBad2)
 
     assertEquals(
-      parserInteger(
-        "i000000000000000000000000000000000000000000000000000000000000000000000000000000000000001e".toList
+      parserInteger2(
+        "i000000000000000000000000000000000000000000000000000000000000000000000000000000000000001e".in
       ),
-      resultBad
+      resultBad2
     )
 
     // making sure the only valid numbers are ascii decimal digits:
     // Arabic-script digits - ٠١٢٣٤٥٦٧٨٩
     // from: https://www.unicode.org/terminology/digits.html
     assertEquals(
-      parserInteger(
-        "i١٢e".toList
+      parserInteger2(
+        "i١٢e".in
       ),
-      resultBad
+      resultBad2
     )
   }
 
   test("parserInteger ✔ - valid inputs") {
-    assertEquals(
-      parserInteger("i1e".toList),
-      resultOk(BInteger(1L), "")
-    )
+    val Some((int1, r1)) = parserInteger2("i1e".in): @unchecked
+    assertEquals(int1, BInteger(1L))
+    assertEquals(String(r1), "")
 
-    assertEquals(
-      parserInteger("i10e".toList),
-      resultOk(BInteger(10L), "")
-    )
+    val Some((int2, r2)) = parserInteger2("i10e".in): @unchecked
+    assertEquals(int2, BInteger(10L))
+    assertEquals(String(r1), "")
 
-    assertEquals(
-      parserInteger("i9999999999e:".toList),
-      resultOk(BInteger(9999999999L), ":")
-    )
+    val Some((int3, r3)) = parserInteger2("i9999999999e:".in): @unchecked
+    assertEquals(int3, BInteger(9999999999L))
+    assertEquals(String(r3), ":")
 
-    assertEquals(
-      parserInteger("i0e".toList),
-      resultOk(BInteger(0L), "")
-    )
+    val Some((int4, r4)) = parserInteger2("i0e".in): @unchecked
+    assertEquals(int4, BInteger(0L))
+    assertEquals(String(r4), "")
 
-    assertEquals(
-      parserInteger("i-50e".toList),
-      resultOk(BInteger(-50L), "")
-    )
+    val Some((int5, r5)) = parserInteger2("i-50e".in): @unchecked
+    assertEquals(int5, BInteger(-50L))
+    assertEquals(String(r5), "")
 
-    assertEquals(
-      parserInteger("i-9999999999e:".toList),
-      resultOk(BInteger(-9999999999L), ":")
-    )
+    val Some((int6, r6)) = parserInteger2("i-9999999999e:".in): @unchecked
+    assertEquals(int6, BInteger(-9999999999L))
+    assertEquals(String(r6), ":")
   }
 
   test("parserList ❌ - invalid inputs") {
