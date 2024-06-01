@@ -2,17 +2,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // TODO:
-//   - probably change option to Eithers with specific error information
 //   - replace all of it by cats parser or any other custom parser combinators logic... (?)
 
 package butorrent4s
 
-import scala.math.Ordering.Implicits._
-import scala.annotation.tailrec
+import scala.math.Ordering.Implicits.*
 import butorrent4s.Bencode
 import butorrent4s.Bencode.*
+import ParseError.*
 
-type ParseResult[+A] = Option[(A, Array[Byte])]
+import scala.annotation.tailrec
+
+type ParseResult[+A] = ParseError | (A, Array[Byte])
 
 def decode(input: String): ParseResult[Bencode] =
   decode(input.getBytes("UTF-8"))
@@ -31,7 +32,14 @@ private[butorrent4s] def choiceP(
     case Array(`l`, _*)                  => listP(input)
     case Array(`d`, _*)                  => dictionaryP(input)
     case Array(b, _*) if isASCIIDigit(b) => byteStringP(input)
-    case _                               => None
+    case Array(b, _*) =>
+      unexpected(
+        b,
+        ExpectedToken.I,
+        ExpectedToken.L,
+        ExpectedToken.D,
+        ExpectedToken.Digit
+      )
 }
 
 private[butorrent4s] def byteStringP(
@@ -66,13 +74,15 @@ private[butorrent4s] def byteStringP(
 
             (bstring(parsed), remaining)
           }
+          .getOrElse(InvalidString(StringErrDetail.Parsing))
 
       // Next char is a digit, accumulate it, check next.
       case Array(x, xs*) if isASCIIDigit(x) =>
         loop(in = xs.toArray, digitsSeen = x :: digitsSeen)
 
       // No delimiter ':' and no digits, bad input
-      case _ => None
+      case Array(x, _*) =>
+        unexpected(x, ExpectedToken.Digit, ExpectedToken.Colon)
     }
   }
 
@@ -111,11 +121,16 @@ private[butorrent4s] def integerP(
       case Array(`e`, unparsed*) =>
         val digits = digitsSeen.reverse.toArray
 
-        // we need to recover the negative encoding for the number
-        def negate(l: Long) = if isNegative then -l else l
-
         String(digits, "UTF-8").toLongOption
-          .map(p => (binteger(negate(p)), unparsed.toArray))
+          .map { p =>
+            // we need to recover the negative encoding for the number
+            val n = if isNegative then -p else p
+
+            (binteger(n), unparsed.toArray)
+          }
+          .getOrElse(
+            InvalidInteger.parsing(digits)
+          )
 
       case Array(x, xs*) if isASCIIDigit(x) =>
         loop(
@@ -124,8 +139,8 @@ private[butorrent4s] def integerP(
           digitsSeen = x :: digitsSeen
         )
 
-      case _ =>
-        None
+      case Array(x, _*) =>
+        unexpected(x, ExpectedToken.Digit, ExpectedToken.End)
     }
   }
 
@@ -134,9 +149,14 @@ private[butorrent4s] def integerP(
     //  1. exactly zero encoded.
     //  2. anything else starting with zero, invalid.
     //  2. -0  -> no negative zero concept.
-    case Array(`i`, `zero`, `e`, xs*)    => Some((BInteger(0L), xs.toArray))
-    case Array(`i`, `zero`, _, _*)       => None
-    case Array(`i`, `minus`, `zero`, _*) => None
+    case Array(`i`, `zero`, `e`, xs*) =>
+      (binteger(0L), xs.toArray)
+
+    case Array(`i`, `zero`, x, _*) =>
+      InvalidInteger.leadingZero(x)
+
+    case Array(`i`, `minus`, `zero`, _*) =>
+      InvalidInteger.negativeZero()
 
     // looping cases:
     case Array(`i`, `minus`, x, xs*) if isASCIIDigit(x) =>
@@ -153,8 +173,11 @@ private[butorrent4s] def integerP(
         digitsSeen = x :: Nil
       )
 
-    case _ =>
-      None
+    case Array(`i`, x, _*) =>
+      unexpected(x, ExpectedToken.Digit)
+
+    case Array(x, _*) =>
+      unexpected(x, ExpectedToken.I)
   }
 }
 
@@ -187,23 +210,23 @@ private[butorrent4s] def listP(
   ): ParseResult[BList] = {
     in match
       case Array(`e`, unparsed*) =>
-        Some((BList(elems.reverse), unparsed.toArray))
+        (blist(elems.reverse), unparsed.toArray)
 
       case _ =>
         // composition step, one parser after the next, monadic bind, flatmap, etc
-        // note: cannot use flatmap method because cmompiler errors out with "not in tail position"
+        // note: cannot use flatmap method because compiler errors out with "not in tail position"
 
         choiceP(in) match {
-          case Some((parsed, unparsed)) =>
+          case (parsed, unparsed) =>
             loop(in = unparsed, elems = parsed :: elems)
 
-          case None => None
+          case err: ParseError => err
         }
   }
 
   input match
     case Array(`l`, xs*) => loop(in = xs.toArray, elems = List.empty)
-    case _               => None
+    case Array(x, _*)    => unexpected(x, ExpectedToken.L)
 }
 
 private[butorrent4s] def dictionaryP(
@@ -230,17 +253,20 @@ private[butorrent4s] def dictionaryP(
   ): ParseResult[BDictionary] = {
     in match
       case Array(`e`, unparsed*) =>
-        Some((bdictionary(elems.reverse), unparsed.toArray))
+        (bdictionary(elems.reverse), unparsed.toArray)
 
       case _ =>
         // composition step, one parser after the next, monadic bind, flatmap, etc
         // note: manually unrolled since compiler can't work out the flatmaps
 
         byteStringP(in) match {
-          case Some((parsedKey, unparsed)) =>
+          case err: ParseError => err
+
+          case (parsedKey, unparsed) =>
             // evaluate the keys as Strings to
             // enforce ordering (lexicographic) of the dict keys
             // and also no duplicates:
+
             val isNewKeyValid =
               elems.headOption
                 .map { (prevKey, _) =>
@@ -248,23 +274,24 @@ private[butorrent4s] def dictionaryP(
                 }
                 .getOrElse(true)
 
-            if isNewKeyValid then
+            if isNewKeyValid then {
               // read the value:
               choiceP(unparsed) match {
-                case Some((parsedValue, unparsed)) =>
+                case err: ParseError => err
+
+                case (parsedValue, unparsed) =>
                   loop(in = unparsed, elems = (parsedKey, parsedValue) :: elems)
-
-                case None => None
               }
-            else None
 
-          case None => None
+            } else {
+              InvalidDictionary.unorderedOrEqualKeys(elems.head._1, parsedKey)
+            }
         }
   }
 
   input match
     case Array(`d`, xs*) => loop(in = xs.toArray, elems = List.empty)
-    case _               => None
+    case Array(x, _*)    => unexpected(x, ExpectedToken.D)
 }
 
 private val i: Byte = 0x69 // 'i'
@@ -277,3 +304,51 @@ private val minus: Byte = 0x2d // '-'
 private val colon: Byte = 0x3a // ':'
 
 private def isASCIIDigit(c: Byte) = zero <= c && c <= nine
+
+// ------ Failure Details ------:
+
+enum ParseError:
+  case Unexpected(found: Byte, expected: List[ExpectedToken])
+
+  case InvalidString(detail: StringErrDetail)
+  case InvalidInteger(detail: IntegerErrDetail)
+  case InvalidDictionary(detail: DictErrDetail)
+
+object ParseError:
+  def unexpected(found: Byte, expected: ExpectedToken*) =
+    Unexpected(found, expected.toList)
+
+  enum ExpectedToken:
+    case I, L, D, Digit, End, Colon
+
+  enum StringErrDetail:
+    case Parsing
+
+  enum IntegerErrDetail:
+    case Parsing(found: Array[Byte])
+    case LeadingZero(found: Byte)
+    case NegativeZero
+
+  enum DictErrDetail:
+    case UnorderedOrEqualKeys(prev: BString, next: BString)
+
+  // ----- helpers to build errors easier -----
+  extension (ii: InvalidInteger.type) {
+    def parsing(found: Array[Byte]) =
+      InvalidInteger(
+        IntegerErrDetail.Parsing(found)
+      )
+
+    def leadingZero(found: Byte) =
+      InvalidInteger(
+        IntegerErrDetail.LeadingZero(found)
+      )
+
+    def negativeZero() =
+      InvalidInteger(IntegerErrDetail.NegativeZero)
+  }
+
+  extension (ii: InvalidDictionary.type) {
+    def unorderedOrEqualKeys(prev: BString, next: BString) =
+      InvalidDictionary(DictErrDetail.UnorderedOrEqualKeys(prev, next))
+  }

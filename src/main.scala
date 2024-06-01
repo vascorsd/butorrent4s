@@ -41,36 +41,37 @@ object Main extends IOApp {
             val r = source
               .map(decode)
               .evalMap {
-                case Some((v @ Bencode.BString(parsed), remaining)) =>
+                case (v @ Bencode.BString(parsed), remaining) =>
                   IO.println(s"toString: ${v}") *>
                     IO.println(s"Decoded value: ${String(parsed)}") *>
                     IO.println(
                       s"Remaining unparsed input: ${String(remaining)}"
                     )
 
-                case Some((v @ Bencode.BInteger(parsed), remaining)) =>
+                case (v @ Bencode.BInteger(parsed), remaining) =>
                   IO.println(s"toString: ${v}") *>
                     IO.println(s"Decoded value: ${parsed}") *>
                     IO.println(
                       s"Remaining unparsed input: ${String(remaining)}"
                     )
 
-                case Some((v @ Bencode.BList(parsed), remaining)) =>
+                case (v @ Bencode.BList(parsed), remaining) =>
                   IO.println(s"toString: ${v}") *>
                     IO.println(s"Decoded value: ${parsed}") *>
                     IO.println(
                       s"Remaining unparsed input: ${String(remaining)}"
                     )
 
-                case Some((v @ Bencode.BDictionary(parsed), remaining)) =>
+                case (v @ Bencode.BDictionary(parsed), remaining) =>
                   IO.println(s"toString: ${v}") *>
                     IO.println(s"Decoded value: ${parsed}") *>
                     IO.println(
                       s"Remaining unparsed input: ${String(remaining)}"
                     )
 
-                case None =>
-                  IO.println("Couldn't decode given input")
+                case error =>
+                  IO.println("Couldn't decode given input") *>
+                    IO.println(error)
               }
               .compile
               .drain
