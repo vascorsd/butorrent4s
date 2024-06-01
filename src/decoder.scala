@@ -34,7 +34,16 @@ private[butorrent4s] def choiceP(
     case Array(b, _*) if isASCIIDigit(b) => byteStringP(input)
     case Array(b, _*) =>
       unexpected(
+        ParseContext.Choice,
         b,
+        ExpectedToken.I,
+        ExpectedToken.L,
+        ExpectedToken.D,
+        ExpectedToken.Digit
+      )
+    case Array() =>
+      unexpectedEOI(
+        ParseContext.Choice,
         ExpectedToken.I,
         ExpectedToken.L,
         ExpectedToken.D,
@@ -82,7 +91,19 @@ private[butorrent4s] def byteStringP(
 
       // No delimiter ':' and no digits, bad input
       case Array(x, _*) =>
-        unexpected(x, ExpectedToken.Digit, ExpectedToken.Colon)
+        unexpected(
+          ParseContext.BString,
+          x,
+          ExpectedToken.Digit,
+          ExpectedToken.Colon
+        )
+
+      case Array() =>
+        unexpectedEOI(
+          ParseContext.BString,
+          ExpectedToken.Digit,
+          ExpectedToken.Colon
+        )
     }
   }
 
@@ -140,7 +161,20 @@ private[butorrent4s] def integerP(
         )
 
       case Array(x, _*) =>
-        unexpected(x, ExpectedToken.Digit, ExpectedToken.End)
+        unexpected(
+          ParseContext.BInteger,
+          x,
+          ExpectedToken.Digit,
+          ExpectedToken.End
+        )
+
+      case Array(_*) =>
+        unexpectedEOI(
+          ParseContext.BInteger,
+          ExpectedToken.Digit,
+          ExpectedToken.End
+        )
+
     }
   }
 
@@ -152,8 +186,8 @@ private[butorrent4s] def integerP(
     case Array(`i`, `zero`, `e`, xs*) =>
       (binteger(0L), xs.toArray)
 
-    case Array(`i`, `zero`, x, _*) =>
-      InvalidInteger.leadingZero(x)
+    case Array(`i`, `zero`, _*) =>
+      InvalidInteger.leadingZero()
 
     case Array(`i`, `minus`, `zero`, _*) =>
       InvalidInteger.negativeZero()
@@ -173,11 +207,11 @@ private[butorrent4s] def integerP(
         digitsSeen = x :: Nil
       )
 
-    case Array(`i`, x, _*) =>
-      unexpected(x, ExpectedToken.Digit)
+    case Array(`i`, xs*) =>
+      unexpectedEOI(ParseContext.BInteger, ExpectedToken.Digit)
 
-    case Array(x, _*) =>
-      unexpected(x, ExpectedToken.I)
+    case Array(_*) =>
+      unexpectedEOI(ParseContext.BInteger, ExpectedToken.I)
   }
 }
 
@@ -226,7 +260,7 @@ private[butorrent4s] def listP(
 
   input match
     case Array(`l`, xs*) => loop(in = xs.toArray, elems = List.empty)
-    case Array(x, _*)    => unexpected(x, ExpectedToken.L)
+    case Array(x, _*)    => unexpected(ParseContext.BList, x, ExpectedToken.L)
 }
 
 private[butorrent4s] def dictionaryP(
@@ -290,8 +324,11 @@ private[butorrent4s] def dictionaryP(
   }
 
   input match
-    case Array(`d`, xs*) => loop(in = xs.toArray, elems = List.empty)
-    case Array(x, _*)    => unexpected(x, ExpectedToken.D)
+    case Array(`d`, xs*) =>
+      loop(in = xs.toArray, elems = List.empty)
+
+    case Array(x, _*) =>
+      unexpected(ParseContext.BDictionary, x, ExpectedToken.D)
 }
 
 private val i: Byte = 0x69 // 'i'
@@ -308,15 +345,22 @@ private def isASCIIDigit(c: Byte) = zero <= c && c <= nine
 // ------ Failure Details ------:
 
 enum ParseError:
-  case Unexpected(found: Byte, expected: List[ExpectedToken])
+  case Unexpected(ctx: ParseContext, found: Byte, expected: List[ExpectedToken])
+  case UnexpectedEOI(ctx: ParseContext, expected: List[ExpectedToken])
 
   case InvalidString(detail: StringErrDetail)
   case InvalidInteger(detail: IntegerErrDetail)
   case InvalidDictionary(detail: DictErrDetail)
 
 object ParseError:
-  def unexpected(found: Byte, expected: ExpectedToken*) =
-    Unexpected(found, expected.toList)
+  def unexpected(ctx: ParseContext, found: Byte, expected: ExpectedToken*) =
+    Unexpected(ctx, found, expected.toList)
+
+  def unexpectedEOI(ctx: ParseContext, expected: ExpectedToken*) =
+    UnexpectedEOI(ctx, expected.toList)
+
+  enum ParseContext:
+    case BInteger, BList, BDictionary, BString, Choice
 
   enum ExpectedToken:
     case I, L, D, Digit, End, Colon
@@ -326,7 +370,7 @@ object ParseError:
 
   enum IntegerErrDetail:
     case Parsing(found: Array[Byte])
-    case LeadingZero(found: Byte)
+    case LeadingZero
     case NegativeZero
 
   enum DictErrDetail:
@@ -339,9 +383,9 @@ object ParseError:
         IntegerErrDetail.Parsing(found)
       )
 
-    def leadingZero(found: Byte) =
+    def leadingZero() =
       InvalidInteger(
-        IntegerErrDetail.LeadingZero(found)
+        IntegerErrDetail.LeadingZero
       )
 
     def negativeZero() =
