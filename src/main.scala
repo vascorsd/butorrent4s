@@ -15,9 +15,9 @@ object Main extends IOApp {
   def run(args: List[String]): IO[ExitCode] =
     val program = Program.description.parse(args)
 
-    program match
+    program match {
       case Left(help) =>
-        val exitCode = if (help.errors.nonEmpty) {
+        val exitCode = if help.errors.nonEmpty then {
           ExitCode.Error
         } else {
           ExitCode.Success
@@ -29,47 +29,48 @@ object Main extends IOApp {
           .as(exitCode)
 
       case Right(v) =>
-        v match
+        v match {
           case Program.Version =>
             IO.println("Version 10").as(ExitCode.Success)
 
           case Program.Decode(input) =>
-            val source = input match
+            val source = input match {
               case "-" => fs2.io.stdinUtf8[IO](1024)
               case _   => fs2.Stream.emit(input)
+            }
 
             val r = source
               .map(decode)
               .evalMap {
-                case (v @ Bencode.BString(parsed), remaining) =>
+                case Right(v @ Bencode.BString(parsed), remaining) =>
                   IO.println(s"toString: ${v}") *>
                     IO.println(s"Decoded value: ${String(parsed)}") *>
                     IO.println(
                       s"Remaining unparsed input: ${String(remaining)}"
                     )
 
-                case (v @ Bencode.BInteger(parsed), remaining) =>
+                case Right(v @ Bencode.BInteger(parsed), remaining) =>
                   IO.println(s"toString: ${v}") *>
                     IO.println(s"Decoded value: ${parsed}") *>
                     IO.println(
                       s"Remaining unparsed input: ${String(remaining)}"
                     )
 
-                case (v @ Bencode.BList(parsed), remaining) =>
+                case Right(v @ Bencode.BList(parsed), remaining) =>
                   IO.println(s"toString: ${v}") *>
                     IO.println(s"Decoded value: ${parsed}") *>
                     IO.println(
                       s"Remaining unparsed input: ${String(remaining)}"
                     )
 
-                case (v @ Bencode.BDictionary(parsed), remaining) =>
+                case Right(v @ Bencode.BDictionary(parsed), remaining) =>
                   IO.println(s"toString: ${v}") *>
                     IO.println(s"Decoded value: ${parsed}") *>
                     IO.println(
                       s"Remaining unparsed input: ${String(remaining)}"
                     )
 
-                case error =>
+                case Left(error) =>
                   IO.println("Couldn't decode given input") *>
                     IO.println(error)
               }
@@ -82,10 +83,11 @@ object Main extends IOApp {
             // encode(input)
 
             IO.println("Encoding...").as(ExitCode.Success)
-
+        }
+    }
 }
 
-enum Program {
+enum Program derives CanEqual {
   case Version
   case Decode(input: String)
   case Encode(input: String)

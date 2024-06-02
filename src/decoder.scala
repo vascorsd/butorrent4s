@@ -10,10 +10,11 @@ import scala.math.Ordering.Implicits.*
 import butorrent4s.Bencode
 import butorrent4s.Bencode.*
 import ParseError.*
+import cats.syntax.either.*
 
 import scala.annotation.tailrec
 
-type ParseResult[+A] = ParseError | (A, Array[Byte])
+type ParseResult[+A] = Either[ParseError, (A, Array[Byte])]
 
 def decode(input: String): ParseResult[Bencode] =
   decode(input.getBytes("UTF-8"))
@@ -32,6 +33,7 @@ private[butorrent4s] def choiceP(
     case Array(`l`, _*)                  => listP(input)
     case Array(`d`, _*)                  => dictionaryP(input)
     case Array(b, _*) if isASCIIDigit(b) => byteStringP(input)
+
     case Array(b, _*) =>
       unexpected(
         ParseContext.Choice,
@@ -40,7 +42,8 @@ private[butorrent4s] def choiceP(
         ExpectedToken.L,
         ExpectedToken.D,
         ExpectedToken.Digit
-      )
+      ).asLeft
+
     case Array() =>
       unexpectedEOI(
         ParseContext.Choice,
@@ -48,7 +51,7 @@ private[butorrent4s] def choiceP(
         ExpectedToken.L,
         ExpectedToken.D,
         ExpectedToken.Digit
-      )
+      ).asLeft
 }
 
 private[butorrent4s] def byteStringP(
@@ -81,9 +84,9 @@ private[butorrent4s] def byteStringP(
           .map { len =>
             val (parsed, remaining) = strData.splitAt(len)
 
-            (bstring(parsed), remaining)
+            (bstring(parsed), remaining).asRight
           }
-          .getOrElse(InvalidString(StringErrDetail.Parsing))
+          .getOrElse(InvalidString(StringErrDetail.Parsing).asLeft)
 
       // Next char is a digit, accumulate it, check next.
       case Array(x, xs*) if isASCIIDigit(x) =>
@@ -91,19 +94,34 @@ private[butorrent4s] def byteStringP(
 
       // No delimiter ':' and no digits, bad input
       case Array(x, _*) =>
-        unexpected(
-          ParseContext.BString,
-          x,
-          ExpectedToken.Digit,
-          ExpectedToken.Colon
-        )
+        if digitsSeen.isEmpty
+        then
+          unexpected(
+            ParseContext.BString,
+            x,
+            ExpectedToken.Digit
+          ).asLeft
+        else
+          unexpected(
+            ParseContext.BString,
+            x,
+            ExpectedToken.Digit,
+            ExpectedToken.Colon
+          ).asLeft
 
       case Array() =>
-        unexpectedEOI(
-          ParseContext.BString,
-          ExpectedToken.Digit,
-          ExpectedToken.Colon
-        )
+        if digitsSeen.isEmpty
+        then
+          unexpectedEOI(
+            ParseContext.BString,
+            ExpectedToken.Digit
+          ).asLeft
+        else
+          unexpectedEOI(
+            ParseContext.BString,
+            ExpectedToken.Digit,
+            ExpectedToken.Colon
+          ).asLeft
     }
   }
 
@@ -147,10 +165,10 @@ private[butorrent4s] def integerP(
             // we need to recover the negative encoding for the number
             val n = if isNegative then -p else p
 
-            (binteger(n), unparsed.toArray)
+            (binteger(n), unparsed.toArray).asRight
           }
           .getOrElse(
-            InvalidInteger.parsing(digits)
+            InvalidInteger.parsing(digits).asLeft
           )
 
       case Array(x, xs*) if isASCIIDigit(x) =>
@@ -166,14 +184,14 @@ private[butorrent4s] def integerP(
           x,
           ExpectedToken.Digit,
           ExpectedToken.End
-        )
+        ).asLeft
 
       case Array(_*) =>
         unexpectedEOI(
           ParseContext.BInteger,
           ExpectedToken.Digit,
           ExpectedToken.End
-        )
+        ).asLeft
 
     }
   }
@@ -184,13 +202,13 @@ private[butorrent4s] def integerP(
     //  2. anything else starting with zero, invalid.
     //  2. -0  -> no negative zero concept.
     case Array(`i`, `zero`, `e`, xs*) =>
-      (binteger(0L), xs.toArray)
+      (binteger(0L), xs.toArray).asRight
 
     case Array(`i`, `zero`, _*) =>
-      InvalidInteger.leadingZero()
+      InvalidInteger.leadingZero().asLeft
 
     case Array(`i`, `minus`, `zero`, _*) =>
-      InvalidInteger.negativeZero()
+      InvalidInteger.negativeZero().asLeft
 
     // looping cases:
     case Array(`i`, `minus`, x, xs*) if isASCIIDigit(x) =>
@@ -208,10 +226,10 @@ private[butorrent4s] def integerP(
       )
 
     case Array(`i`, xs*) =>
-      unexpectedEOI(ParseContext.BInteger, ExpectedToken.Digit)
+      unexpectedEOI(ParseContext.BInteger, ExpectedToken.Digit).asLeft
 
     case Array(_*) =>
-      unexpectedEOI(ParseContext.BInteger, ExpectedToken.I)
+      unexpectedEOI(ParseContext.BInteger, ExpectedToken.I).asLeft
   }
 }
 
@@ -234,9 +252,6 @@ private[butorrent4s] def listP(
   //    Example: l4:spam4:eggse represents the list of two strings: [ "spam", "eggs" ]
   //    Example: le represents an empty list: []
 
-  // notes:
-  // 1. List can have any type, it's an HList as more common in scala.
-
   @tailrec
   def loop(
       in: Array[Byte],
@@ -244,23 +259,27 @@ private[butorrent4s] def listP(
   ): ParseResult[BList] = {
     in match
       case Array(`e`, unparsed*) =>
-        (blist(elems.reverse), unparsed.toArray)
+        (blist(elems.reverse), unparsed.toArray).asRight
 
       case _ =>
         // composition step, one parser after the next, monadic bind, flatmap, etc
         // note: cannot use flatmap method because compiler errors out with "not in tail position"
 
-        choiceP(in) match {
-          case (parsed, unparsed) =>
+        choiceP(in) match
+          case err @ Left(_) => err.rightCast
+          case Right((parsed, unparsed)) =>
             loop(in = unparsed, elems = parsed :: elems)
-
-          case err: ParseError => err
-        }
   }
 
   input match
-    case Array(`l`, xs*) => loop(in = xs.toArray, elems = List.empty)
-    case Array(x, _*)    => unexpected(ParseContext.BList, x, ExpectedToken.L)
+    case Array(`l`, xs*) =>
+      loop(in = xs.toArray, elems = List.empty)
+
+    case Array(x, _*) =>
+      unexpected(ParseContext.BList, x, ExpectedToken.L).asLeft
+
+    case Array(_*) =>
+      unexpectedEOI(ParseContext.BList, ExpectedToken.L).asLeft
 }
 
 private[butorrent4s] def dictionaryP(
@@ -287,20 +306,16 @@ private[butorrent4s] def dictionaryP(
   ): ParseResult[BDictionary] = {
     in match
       case Array(`e`, unparsed*) =>
-        (bdictionary(elems.reverse), unparsed.toArray)
+        (bdictionary(elems.reverse), unparsed.toArray).asRight
 
       case _ =>
         // composition step, one parser after the next, monadic bind, flatmap, etc
         // note: manually unrolled since compiler can't work out the flatmaps
 
         byteStringP(in) match {
-          case err: ParseError => err
-
-          case (parsedKey, unparsed) =>
-            // evaluate the keys as Strings to
-            // enforce ordering (lexicographic) of the dict keys
-            // and also no duplicates:
-
+          case err @ Left(_)                => err.rightCast
+          case Right((parsedKey, unparsed)) =>
+            // enforce ordering (lexicographic) of keys an no duplicates,
             val isNewKeyValid =
               elems.headOption
                 .map { (prevKey, _) =>
@@ -311,14 +326,14 @@ private[butorrent4s] def dictionaryP(
             if isNewKeyValid then {
               // read the value:
               choiceP(unparsed) match {
-                case err: ParseError => err
-
-                case (parsedValue, unparsed) =>
+                case err @ Left(_) => err.rightCast
+                case Right((parsedValue, unparsed)) =>
                   loop(in = unparsed, elems = (parsedKey, parsedValue) :: elems)
               }
-
             } else {
-              InvalidDictionary.unorderedOrEqualKeys(elems.head._1, parsedKey)
+              InvalidDictionary
+                .unorderedOrEqualKeys(elems.head._1, parsedKey)
+                .asLeft
             }
         }
   }
@@ -328,7 +343,7 @@ private[butorrent4s] def dictionaryP(
       loop(in = xs.toArray, elems = List.empty)
 
     case Array(x, _*) =>
-      unexpected(ParseContext.BDictionary, x, ExpectedToken.D)
+      unexpected(ParseContext.BDictionary, x, ExpectedToken.D).asLeft
 }
 
 private val i: Byte = 0x69 // 'i'

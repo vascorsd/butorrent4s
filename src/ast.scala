@@ -22,7 +22,7 @@ import java.util.Comparator
 //                 The keys need to be lexographhic ordered which if I eventually change the
 //                 BString to be raw bytes, I'm not sure how it's gonna look...
 
-enum Bencode:
+enum Bencode derives CanEqual:
   case BString(v: Array[Byte])
   case BInteger(v: Long)
   case BList(v: List[Bencode])
@@ -30,16 +30,16 @@ enum Bencode:
 
   override def toString: String = this match
     case BString(v) =>
-      s"bstring \"${String(v, "UTF-8")}\""
+      s"bstring\"${String(v, "UTF-8")}\""
 
     case BInteger(v) =>
-      s"bint : ${v}"
+      s"bint:${v}"
 
     case BList(v) =>
-      s"blist [ ${v.map(_.toString()).mkString(", ")} ]"
+      s"blist[ ${v.map(_.toString()).mkString(", ")} ]"
 
     case BDictionary(v) =>
-      s"bdict { ${v.map((k, v) => s"$k -> $v").mkString(", ")} }"
+      s"bdict{ ${v.map((k, v) => s"$k -> $v").mkString(", ")} }"
 
 object Bencode:
   def bstring(s: String): BString = BString(s.getBytes("UTF-8"))
