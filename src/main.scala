@@ -12,7 +12,7 @@ import fs2.io.*
 
 object Main extends IOApp {
 
-  def run(args: List[String]): IO[ExitCode] =
+  def run(args: List[String]): IO[ExitCode] = {
     val program = Program.description.parse(args)
 
     program match {
@@ -23,7 +23,7 @@ object Main extends IOApp {
           ExitCode.Success
         }
 
-//        Console[IO].errorln("pooper: ") *>
+        //        Console[IO].errorln("pooper: ") *>
         Console[IO]
           .errorln(help)
           .as(exitCode)
@@ -85,6 +85,7 @@ object Main extends IOApp {
             IO.println("Encoding...").as(ExitCode.Success)
         }
     }
+  }
 }
 
 enum Program derives CanEqual {

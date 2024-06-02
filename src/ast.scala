@@ -22,13 +22,13 @@ import java.util.Comparator
 //                 The keys need to be lexographhic ordered which if I eventually change the
 //                 BString to be raw bytes, I'm not sure how it's gonna look...
 
-enum Bencode derives CanEqual:
+enum Bencode derives CanEqual {
   case BString(v: Array[Byte])
   case BInteger(v: Long)
   case BList(v: List[Bencode])
   case BDictionary(v: List[(BString, Bencode)])
 
-  override def toString: String = this match
+  override def toString: String = this match {
     case BString(v) =>
       s"bstring\"${String(v, "UTF-8")}\""
 
@@ -40,36 +40,31 @@ enum Bencode derives CanEqual:
 
     case BDictionary(v) =>
       s"bdict{ ${v.map((k, v) => s"$k -> $v").mkString(", ")} }"
+  }
+}
 
-object Bencode:
-  def bstring(s: String): BString = BString(s.getBytes("UTF-8"))
+object Bencode {
+  def bstring(s: String): BString      = BString(s.getBytes("UTF-8"))
   def bstring(b: Array[Byte]): BString = BString(b)
 
   def binteger(l: Long): BInteger = BInteger(l)
 
-  def blist(): BList = BList(List.empty)
-  def blist(elem: Bencode): BList = BList(elem :: Nil)
-  def blist(elems: Bencode*): BList = BList(elems.toList)
+  def blist(): BList                     = BList(List.empty)
+  def blist(elem: Bencode): BList        = BList(elem :: Nil)
+  def blist(elems: Bencode*): BList      = BList(elems.toList)
   def blist(elems: List[Bencode]): BList = BList(elems)
 
-  def bdictionary(): BDictionary = BDictionary(Nil)
-  def bdictionary(k: BString, v: Bencode): BDictionary = BDictionary(
-    k -> v :: Nil
-  )
-  def bdictionary(elems: (BString, Bencode)*): BDictionary = BDictionary(
-    elems.toList
-  )
-
-  def bdictionary(elems: List[(BString, Bencode)]): BDictionary = BDictionary(
-    elems
-  )
+  def bdictionary(): BDictionary                                = BDictionary(Nil)
+  def bdictionary(k: BString, v: Bencode): BDictionary          = BDictionary(k -> v :: Nil)
+  def bdictionary(elems: (BString, Bencode)*): BDictionary      = BDictionary(elems.toList)
+  def bdictionary(elems: List[(BString, Bencode)]): BDictionary = BDictionary(elems)
 
   extension (lc: BList.type) {
     def empty: BList = blist()
   }
 
   extension (l: BList) {
-    def isEmpty: Boolean = l.v.isEmpty
+    def isEmpty: Boolean  = l.v.isEmpty
     def nonEmpty: Boolean = l.v.nonEmpty
   }
 
@@ -78,10 +73,9 @@ object Bencode:
   }
 
   extension (d: BDictionary) {
-    def isEmpty: Boolean = d.v.isEmpty
+    def isEmpty: Boolean  = d.v.isEmpty
     def nonEmpty: Boolean = d.v.nonEmpty
   }
 
-  given Ordering[BString] = Ordering.by[BString, String] { bs =>
-    String(bs.v, "UTF-8")
-  }
+  given Ordering[BString] = Ordering.by[BString, String] { bs => String(bs.v, "UTF-8") }
+}

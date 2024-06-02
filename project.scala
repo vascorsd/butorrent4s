@@ -8,7 +8,7 @@
 //> using option -language:strictEquality
 //> using option -explain
 //> using option -new-syntax
-///> using option -no-indent
+//> using option -no-indent
 
 //> using toolkit typelevel:0.1.26
 //> using test.toolkit typelevel:0.1.26

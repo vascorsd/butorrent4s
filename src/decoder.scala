@@ -28,7 +28,7 @@ def decode(input: Array[Byte]): ParseResult[Bencode] =
 private[butorrent4s] def choiceP(
     input: Array[Byte]
 ): ParseResult[Bencode] = {
-  input match
+  input match {
     case Array(`i`, _*)                  => integerP(input)
     case Array(`l`, _*)                  => listP(input)
     case Array(`d`, _*)                  => dictionaryP(input)
@@ -52,6 +52,7 @@ private[butorrent4s] def choiceP(
         ExpectedToken.D,
         ExpectedToken.Digit
       ).asLeft
+  }
 }
 
 private[butorrent4s] def byteStringP(
@@ -75,7 +76,7 @@ private[butorrent4s] def byteStringP(
       case Array(`colon`, xs*) if digitsSeen.nonEmpty =>
         // doesn't fail, since we checked it's digits we are parsing.
         // parsing to Int, since max size of string in jvm is Integer.MAX_VALUE.
-        val strLen = String(digitsSeen.reverse.toArray, "UTF-8").toIntOption
+        val strLen  = String(digitsSeen.reverse.toArray, "UTF-8").toIntOption
         val strData = xs.toArray
 
         // check that we have at least the amount of data requested in the input.
@@ -89,11 +90,11 @@ private[butorrent4s] def byteStringP(
           .getOrElse(InvalidString(StringErrDetail.Parsing).asLeft)
 
       // Next char is a digit, accumulate it, check next.
-      case Array(x, xs*) if isASCIIDigit(x) =>
+      case Array(x, xs*) if isASCIIDigit(x)           =>
         loop(in = xs.toArray, digitsSeen = x :: digitsSeen)
 
       // No delimiter ':' and no digits, bad input
-      case Array(x, _*) =>
+      case Array(x, _*)                               =>
         if digitsSeen.isEmpty
         then
           unexpected(
@@ -207,7 +208,7 @@ private[butorrent4s] def integerP(
     case Array(`i`, `zero`, _*) =>
       InvalidInteger.leadingZero().asLeft
 
-    case Array(`i`, `minus`, `zero`, _*) =>
+    case Array(`i`, `minus`, `zero`, _*)                =>
       InvalidInteger.negativeZero().asLeft
 
     // looping cases:
@@ -257,7 +258,7 @@ private[butorrent4s] def listP(
       in: Array[Byte],
       elems: List[Bencode]
   ): ParseResult[BList] = {
-    in match
+    in match {
       case Array(`e`, unparsed*) =>
         (blist(elems.reverse), unparsed.toArray).asRight
 
@@ -265,13 +266,15 @@ private[butorrent4s] def listP(
         // composition step, one parser after the next, monadic bind, flatmap, etc
         // note: cannot use flatmap method because compiler errors out with "not in tail position"
 
-        choiceP(in) match
-          case err @ Left(_) => err.rightCast
+        choiceP(in) match {
+          case err @ Left(_)             => err.rightCast
           case Right((parsed, unparsed)) =>
             loop(in = unparsed, elems = parsed :: elems)
+        }
+    }
   }
 
-  input match
+  input match {
     case Array(`l`, xs*) =>
       loop(in = xs.toArray, elems = List.empty)
 
@@ -280,6 +283,7 @@ private[butorrent4s] def listP(
 
     case Array(_*) =>
       unexpectedEOI(ParseContext.BList, ExpectedToken.L).asLeft
+  }
 }
 
 private[butorrent4s] def dictionaryP(
@@ -304,7 +308,7 @@ private[butorrent4s] def dictionaryP(
       in: Array[Byte],
       elems: List[(BString, Bencode)]
   ): ParseResult[BDictionary] = {
-    in match
+    in match {
       case Array(`e`, unparsed*) =>
         (bdictionary(elems.reverse), unparsed.toArray).asRight
 
@@ -326,7 +330,7 @@ private[butorrent4s] def dictionaryP(
             if isNewKeyValid then {
               // read the value:
               choiceP(unparsed) match {
-                case err @ Left(_) => err.rightCast
+                case err @ Left(_)                  => err.rightCast
                 case Right((parsedValue, unparsed)) =>
                   loop(in = unparsed, elems = (parsedKey, parsedValue) :: elems)
               }
@@ -336,22 +340,24 @@ private[butorrent4s] def dictionaryP(
                 .asLeft
             }
         }
+    }
   }
 
-  input match
+  input match {
     case Array(`d`, xs*) =>
       loop(in = xs.toArray, elems = List.empty)
 
     case Array(x, _*) =>
       unexpected(ParseContext.BDictionary, x, ExpectedToken.D).asLeft
+  }
 }
 
-private val i: Byte = 0x69 // 'i'
-private val l: Byte = 0x6c // 'l'
-private val d: Byte = 0x64 // 'd'
-private val e: Byte = 0x65 // 'e'
-private val zero: Byte = 0x30 // '0'
-private val nine: Byte = 0x39 // '9'
+private val i: Byte     = 0x69 // 'i'
+private val l: Byte     = 0x6c // 'l'
+private val d: Byte     = 0x64 // 'd'
+private val e: Byte     = 0x65 // 'e'
+private val zero: Byte  = 0x30 // '0'
+private val nine: Byte  = 0x39 // '9'
 private val minus: Byte = 0x2d // '-'
 private val colon: Byte = 0x3a // ':'
 
@@ -359,55 +365,55 @@ private def isASCIIDigit(c: Byte) = zero <= c && c <= nine
 
 // ------ Failure Details ------:
 
-enum ParseError:
+enum ParseError {
   case Unexpected(ctx: ParseContext, found: Byte, expected: List[ExpectedToken])
   case UnexpectedEOI(ctx: ParseContext, expected: List[ExpectedToken])
 
   case InvalidString(detail: StringErrDetail)
   case InvalidInteger(detail: IntegerErrDetail)
   case InvalidDictionary(detail: DictErrDetail)
+}
 
-object ParseError:
+object ParseError {
   def unexpected(ctx: ParseContext, found: Byte, expected: ExpectedToken*) =
     Unexpected(ctx, found, expected.toList)
 
   def unexpectedEOI(ctx: ParseContext, expected: ExpectedToken*) =
     UnexpectedEOI(ctx, expected.toList)
 
-  enum ParseContext:
+  enum ParseContext {
     case BInteger, BList, BDictionary, BString, Choice
+  }
 
-  enum ExpectedToken:
+  enum ExpectedToken {
     case I, L, D, Digit, End, Colon
+  }
 
-  enum StringErrDetail:
+  enum StringErrDetail {
     case Parsing
+  }
 
-  enum IntegerErrDetail:
+  enum IntegerErrDetail {
     case Parsing(found: Array[Byte])
     case LeadingZero
     case NegativeZero
+  }
 
-  enum DictErrDetail:
+  enum DictErrDetail {
     case UnorderedOrEqualKeys(prev: BString, next: BString)
+  }
 
   // ----- helpers to build errors easier -----
   extension (ii: InvalidInteger.type) {
-    def parsing(found: Array[Byte]) =
-      InvalidInteger(
-        IntegerErrDetail.Parsing(found)
-      )
-
-    def leadingZero() =
-      InvalidInteger(
-        IntegerErrDetail.LeadingZero
-      )
-
-    def negativeZero() =
-      InvalidInteger(IntegerErrDetail.NegativeZero)
+    def parsing(found: Array[Byte]) = InvalidInteger(IntegerErrDetail.Parsing(found))
+    def leadingZero()               = InvalidInteger(IntegerErrDetail.LeadingZero)
+    def negativeZero()              = InvalidInteger(IntegerErrDetail.NegativeZero)
   }
 
   extension (ii: InvalidDictionary.type) {
     def unorderedOrEqualKeys(prev: BString, next: BString) =
-      InvalidDictionary(DictErrDetail.UnorderedOrEqualKeys(prev, next))
+      InvalidDictionary(
+        DictErrDetail.UnorderedOrEqualKeys(prev, next)
+      )
   }
+}

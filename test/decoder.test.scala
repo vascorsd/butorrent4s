@@ -26,9 +26,10 @@ class DecoderTests extends munit.FunSuite {
   )(using Location) = {
     val in: Array[Byte] = input.getBytes("UTF-8")
 
-    parser(in) match
+    parser(in) match {
       case Left(value) => assertEquals(value, result)
       case Right(_)    => fail("Pooper")
+    }
   }
 
   def expectOk[A, B](
@@ -39,11 +40,12 @@ class DecoderTests extends munit.FunSuite {
   )(using Location, Compare[A, B]) = {
     val in: Array[Byte] = input.getBytes("UTF-8")
 
-    parser(in) match
-      case Left(value) => fail("Pooper")
+    parser(in) match {
+      case Left(value)               => fail("Pooper")
       case Right((parsed, unparsed)) =>
         assertEquals(parsed, result)
         assertEquals(unparsed.toList, unparsedInput.getBytes("UTF-8").toList)
+    }
   }
 
   test("byteStringP ❌ - invalid inputs") {
