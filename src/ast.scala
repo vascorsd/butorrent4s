@@ -3,7 +3,7 @@
 
 package butorrent4s
 
-import java.util.Comparator
+import scodec.bits.*
 
 // notes:
 //  - String - there's nothing saying that the string has a limit, or that it
@@ -60,6 +60,7 @@ object Bencode {
 
   def bstring(s: String): BString      = BString(s.getBytes("UTF-8"))
   def bstring(b: Array[Byte]): BString = BString(b)
+  def bstring(bv: ByteVector): BString = BString(bv.toArray)
 
   def binteger(l: Long): BInteger = BInteger(l)
 

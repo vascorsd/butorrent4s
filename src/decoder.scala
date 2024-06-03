@@ -7,36 +7,43 @@
 package butorrent4s
 
 import scala.math.Ordering.Implicits.*
+
+import cats.syntax.either.*
+import scodec.bits.*
+
 import butorrent4s.Bencode
 import butorrent4s.Bencode.*
 import ParseError.*
-import cats.syntax.either.*
 
 import scala.annotation.tailrec
 
-type ParseResult[+A] = Either[ParseError, (A, Array[Byte])]
+type ParseResult[+A] = Either[ParseError, (A, ByteVector)]
 
 def decode(input: String): ParseResult[Bencode] =
   decode(input.getBytes("UTF-8"))
 
 def decode(input: Array[Byte]): ParseResult[Bencode] =
-  choiceP(input)
+  decode(ByteVector(input))
+
+def decode(input: ByteVector): ParseResult[Bencode] =
+  oneOfP(input)
 
 // -------- Internals ----------
 
 // choice / alternative by peeking on first next char without consuming it.
-private[butorrent4s] def choiceP(
-    input: Array[Byte]
+private[butorrent4s] def oneOfP(
+    input: ByteVector
 ): ParseResult[Bencode] = {
-  input match {
-    case Array(`i`, _*)                  => integerP(input)
-    case Array(`l`, _*)                  => listP(input)
-    case Array(`d`, _*)                  => dictionaryP(input)
-    case Array(b, _*) if isASCIIDigit(b) => byteStringP(input)
 
-    case Array(b, _*) =>
+  input.headOption match {
+    case Some(`i`)                  => integerP(input)
+    case Some(`l`)                  => listP(input)
+    case Some(`d`)                  => dictionaryP(input)
+    case Some(b) if isASCIIDigit(b) => byteStringP(input)
+
+    case Some(b) =>
       unexpected(
-        ParseContext.Choice,
+        ParseContext.OneOf,
         b,
         ExpectedToken.I,
         ExpectedToken.L,
@@ -44,9 +51,9 @@ private[butorrent4s] def choiceP(
         ExpectedToken.Digit
       ).asLeft
 
-    case Array() =>
+    case None =>
       unexpectedEOI(
-        ParseContext.Choice,
+        ParseContext.OneOf,
         ExpectedToken.I,
         ExpectedToken.L,
         ExpectedToken.D,
@@ -56,7 +63,7 @@ private[butorrent4s] def choiceP(
 }
 
 private[butorrent4s] def byteStringP(
-    input: Array[Byte]
+    input: ByteVector
 ): ParseResult[BString] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Byte_Strings
   //
@@ -68,61 +75,56 @@ private[butorrent4s] def byteStringP(
 
   @tailrec
   def loop(
-      in: Array[Byte],
+      in: ByteVector,
       digitsSeen: List[Byte]
   ): ParseResult[BString] = {
-    in match {
+    in.headOption match {
       // Reached the ':' and found some digits.
-      case Array(`colon`, xs*) if digitsSeen.nonEmpty =>
-        // doesn't fail, since we checked it's digits we are parsing.
-        // parsing to Int, since max size of string in jvm is Integer.MAX_VALUE.
-        val strLen  = String(digitsSeen.reverse.toArray, "UTF-8").toIntOption
-        val strData = xs.toArray
+      case Some(`colon`) if digitsSeen.nonEmpty =>
+        val strLenBytes = digitsSeen.reverse.toArray
 
-        // check that we have at least the amount of data requested in the input.
-        strLen
-          .filter { len => strData.length >= len }
-          .map { len =>
-            val (parsed, remaining) = strData.splitAt(len)
+        // - valid to parse since we are sure only digits are here.
+        // - using Int since max size of string in jvm is Integer.MAX_VALUE.
+        val strLen = String(strLenBytes, "UTF-8").toIntOption
 
-            (bstring(parsed), remaining).asRight
-          }
-          .getOrElse(InvalidString(StringErrDetail.Parsing).asLeft)
+        for {
+          len   <- strLen.toRight(InvalidString(StringErrDetail.ParsingLen(ByteVector(strLenBytes))))
+          value <- in.tail
+                     .consume(len) { data =>
+                       bstring(data).asRight
+                     }
+                     .leftMap(_ => InvalidString(StringErrDetail.ParsingDataInsuficient(len)))
+        } yield value.swap
 
       // Next char is a digit, accumulate it, check next.
-      case Array(x, xs*) if isASCIIDigit(x)           =>
-        loop(in = xs.toArray, digitsSeen = x :: digitsSeen)
+      case Some(d) if isASCIIDigit(d)           =>
+        loop(in = in.tail, digitsSeen = d :: digitsSeen)
 
       // No delimiter ':' and no digits, bad input
-      case Array(x, _*)                               =>
-        if digitsSeen.isEmpty
-        then
-          unexpected(
-            ParseContext.BString,
-            x,
-            ExpectedToken.Digit
-          ).asLeft
-        else
-          unexpected(
-            ParseContext.BString,
-            x,
-            ExpectedToken.Digit,
-            ExpectedToken.Colon
-          ).asLeft
+      case Some(b)                              =>
+        val expected =
+          if digitsSeen.isEmpty
+          then { ExpectedToken.Digit :: Nil }
+          else { ExpectedToken.Digit :: ExpectedToken.Colon :: Nil }
 
-      case Array() =>
-        if digitsSeen.isEmpty
-        then
-          unexpectedEOI(
-            ParseContext.BString,
-            ExpectedToken.Digit
-          ).asLeft
-        else
-          unexpectedEOI(
-            ParseContext.BString,
-            ExpectedToken.Digit,
-            ExpectedToken.Colon
-          ).asLeft
+        unexpected(
+          ParseContext.BString,
+          b,
+          expected*
+        ).asLeft
+
+      // No more input available
+      case None                                 =>
+        val expected =
+          if digitsSeen.isEmpty
+          then { ExpectedToken.Digit :: Nil }
+          else { ExpectedToken.Digit :: ExpectedToken.Colon :: Nil }
+
+        unexpectedEOI(
+          ParseContext.BString,
+          expected*
+        ).asLeft
+
     }
   }
 
@@ -130,7 +132,7 @@ private[butorrent4s] def byteStringP(
 }
 
 private[butorrent4s] def integerP(
-    input: Array[Byte]
+    input: ByteVector
 ): ParseResult[BInteger] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Integers
   //
@@ -154,7 +156,7 @@ private[butorrent4s] def integerP(
   @tailrec
   def loop(
       isNegative: Boolean,
-      in: Array[Byte],
+      in: ByteVector,
       digitsSeen: List[Byte]
   ): ParseResult[BInteger] = {
     in match {
@@ -235,7 +237,7 @@ private[butorrent4s] def integerP(
 }
 
 private[butorrent4s] def listP(
-    input: Array[Byte]
+    input: ByteVector
 ): ParseResult[BList] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Lists
   //
@@ -255,7 +257,7 @@ private[butorrent4s] def listP(
 
   @tailrec
   def loop(
-      in: Array[Byte],
+      in: ByteVector,
       elems: List[Bencode]
   ): ParseResult[BList] = {
     in match {
@@ -266,7 +268,7 @@ private[butorrent4s] def listP(
         // composition step, one parser after the next, monadic bind, flatmap, etc
         // note: cannot use flatmap method because compiler errors out with "not in tail position"
 
-        choiceP(in) match {
+        oneOfP(in) match {
           case err @ Left(_)             => err.rightCast
           case Right((parsed, unparsed)) =>
             loop(in = unparsed, elems = parsed :: elems)
@@ -287,7 +289,7 @@ private[butorrent4s] def listP(
 }
 
 private[butorrent4s] def dictionaryP(
-    input: Array[Byte]
+    input: ByteVector
 ): ParseResult[BDictionary] = {
   // From spec at: https://wiki.theory.org/BitTorrentSpecification#Dictionaries
   //
@@ -305,7 +307,7 @@ private[butorrent4s] def dictionaryP(
 
   @tailrec
   def loop(
-      in: Array[Byte],
+      in: ByteVector,
       elems: List[(BString, Bencode)]
   ): ParseResult[BDictionary] = {
     in match {
@@ -329,7 +331,7 @@ private[butorrent4s] def dictionaryP(
 
             if isNewKeyValid then {
               // read the value:
-              choiceP(unparsed) match {
+              oneOfP(unparsed) match {
                 case err @ Left(_)                  => err.rightCast
                 case Right((parsedValue, unparsed)) =>
                   loop(in = unparsed, elems = (parsedKey, parsedValue) :: elems)
@@ -382,7 +384,7 @@ object ParseError {
     UnexpectedEOI(ctx, expected.toList)
 
   enum ParseContext {
-    case BInteger, BList, BDictionary, BString, Choice
+    case BInteger, BList, BDictionary, BString, OneOf
   }
 
   enum ExpectedToken {
@@ -390,11 +392,12 @@ object ParseError {
   }
 
   enum StringErrDetail {
-    case Parsing
+    case ParsingLen(givenLen: ByteVector)
+    case ParsingDataInsuficient(wanted: Int)
   }
 
   enum IntegerErrDetail {
-    case Parsing(found: Array[Byte])
+    case Parsing(found: ByteVector)
     case LeadingZero
     case NegativeZero
   }
@@ -405,9 +408,9 @@ object ParseError {
 
   // ----- helpers to build errors easier -----
   extension (ii: InvalidInteger.type) {
-    def parsing(found: Array[Byte]) = InvalidInteger(IntegerErrDetail.Parsing(found))
-    def leadingZero()               = InvalidInteger(IntegerErrDetail.LeadingZero)
-    def negativeZero()              = InvalidInteger(IntegerErrDetail.NegativeZero)
+    def parsing(found: ByteVector) = InvalidInteger(IntegerErrDetail.Parsing(found))
+    def leadingZero()              = InvalidInteger(IntegerErrDetail.LeadingZero)
+    def negativeZero()             = InvalidInteger(IntegerErrDetail.NegativeZero)
   }
 
   extension (ii: InvalidDictionary.type) {

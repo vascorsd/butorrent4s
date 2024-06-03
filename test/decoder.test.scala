@@ -1,10 +1,10 @@
 package butorrent4s
 
 import Bencode.*
-import ParseError.{ParseContext, *}
+import ParseError.*
 import ParseError.ExpectedToken.*
 import butorrent4s.ParseError.IntegerErrDetail.{LeadingZero, NegativeZero}
-import butorrent4s.ParseError.StringErrDetail.Parsing
+import butorrent4s.ParseError.StringErrDetail.ParsingValue
 import butorrent4s.ParseError.DictErrDetail.UnorderedOrEqualKeys
 import munit.{Compare, Location}
 
@@ -110,7 +110,7 @@ class DecoderTests extends munit.FunSuite {
     expectBad(
       byteStringP,
       "01:",
-      InvalidString(Parsing)
+      InvalidString(ParsingValue)
     )
 
     // making sure the only valid numbers are ascii decimal digits:
@@ -291,13 +291,13 @@ class DecoderTests extends munit.FunSuite {
     expectBad(
       listP,
       "l",
-      UnexpectedEOI(ParseContext.Choice, List(I, L, D, Digit))
+      UnexpectedEOI(ParseContext.OneOf, List(I, L, D, Digit))
     )
 
     expectBad(
       listP,
       "l:e",
-      Unexpected(ParseContext.Choice, 58, List(I, L, D, Digit))
+      Unexpected(ParseContext.OneOf, 58, List(I, L, D, Digit))
     )
 
     expectBad(
@@ -309,7 +309,7 @@ class DecoderTests extends munit.FunSuite {
     expectBad(
       listP,
       "l1:e",
-      UnexpectedEOI(ParseContext.Choice, List(I, L, D, Digit))
+      UnexpectedEOI(ParseContext.OneOf, List(I, L, D, Digit))
     )
 
     expectBad(
@@ -333,7 +333,7 @@ class DecoderTests extends munit.FunSuite {
     expectBad(
       listP,
       "lle",
-      UnexpectedEOI(ParseContext.Choice, List(I, L, D, Digit))
+      UnexpectedEOI(ParseContext.OneOf, List(I, L, D, Digit))
     )
 
     expectBad(
@@ -438,13 +438,13 @@ class DecoderTests extends munit.FunSuite {
     expectBad(
       dictionaryP,
       "d1:e",
-      UnexpectedEOI(ParseContext.Choice, List(I, L, D, Digit))
+      UnexpectedEOI(ParseContext.OneOf, List(I, L, D, Digit))
     )
 
     expectBad(
       dictionaryP,
       "d1:s",
-      UnexpectedEOI(ParseContext.Choice, List(I, L, D, Digit))
+      UnexpectedEOI(ParseContext.OneOf, List(I, L, D, Digit))
     )
 
     expectBad(
