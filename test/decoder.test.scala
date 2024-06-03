@@ -8,14 +8,6 @@ import butorrent4s.ParseError.StringErrDetail.Parsing
 import butorrent4s.ParseError.DictErrDetail.UnorderedOrEqualKeys
 import munit.{Compare, Location}
 
-//given Compare[BString, BString] = { case (BString(r1), BString(r2)) =>
-//  r1.toList == r2.toList
-//}
-//
-//given Compare[BList, BList] = { case (BList(r1), BList(r2)) =>
-//  r1 == r2
-//}
-
 class DecoderTests extends munit.FunSuite {
 
   def expectBad[A](
@@ -132,48 +124,48 @@ class DecoderTests extends munit.FunSuite {
   }
 
   test("byteStringP ✔ - valid inputs") {
-//    expectOk(
-//      byteStringP,
-//      "1:s",
-//      bstring("s"),
-//      ""
-//    ) // munit bad
+    expectOk(
+      byteStringP,
+      "1:s",
+      bstring("s"),
+      ""
+    )
 
-//    expectOk(
-//      byteStringP,
-//      "0:",
-//      bstring(""),
-//      ""
-//    ) // munit bad
+    expectOk(
+      byteStringP,
+      "0:",
+      bstring(""),
+      ""
+    )
 
-//    expectOk(
-//      byteStringP,
-//      "2:ss",
-//      bstring("ss"),
-//      ""
-//    ) // munit bad
+    expectOk(
+      byteStringP,
+      "2:ss",
+      bstring("ss"),
+      ""
+    )
 
-//    expectOk(
-//      byteStringP,
-//      "10:ssssssssss",
-//      bstring("ssssssssss"),
-//      ""
-//    ) // munit bad
+    expectOk(
+      byteStringP,
+      "10:ssssssssss",
+      bstring("ssssssssss"),
+      ""
+    )
 
     // prove parser not too eager and allows extra bytes as unparsed
-//    expectOk(
-//      byteStringP,
-//      "0:ss",
-//      bstring(""),
-//      "ss"
-//    ) // munit bad
+    expectOk(
+      byteStringP,
+      "0:ss",
+      bstring(""),
+      "ss"
+    )
 
-//    expectOk(
-//      byteStringP,
-//      "1:ss",
-//      bstring("s"),
-//      "s"
-//    ) // munit bad
+    expectOk(
+      byteStringP,
+      "1:ss",
+      bstring("s"),
+      "s"
+    )
 
     // todo: test limits of Ints. As is currently represented I can't even
     //  create a string of the max size in the test.
@@ -366,27 +358,26 @@ class DecoderTests extends munit.FunSuite {
       "e"
     )
 
-    // commented because: munit errors with: values are not equal even if they have the same `toString()`: bstring"s"
-//    expectOk(
-//      listP,
-//      "l0:e",
-//      blist(
-//        bstring("")
-//      ),
-//      ""
-//    )
+    expectOk(
+      listP,
+      "l0:e",
+      blist(
+        bstring("")
+      ),
+      ""
+    )
 
-//    expectOk(
-//      listP,
-//      "l0:2:ssi1elee",
-//      blist(
-//        bstring(""),
-//        bstring("ss"),
-//        binteger(1L),
-//        blist()
-//      ),
-//      ""
-//    )
+    expectOk(
+      listP,
+      "l0:2:ssi1elee",
+      blist(
+        bstring(""),
+        bstring("ss"),
+        binteger(1L),
+        blist()
+      ),
+      ""
+    )
   }
 
   test("dictionaryP ❌ - invalid inputs") {
@@ -470,91 +461,91 @@ class DecoderTests extends munit.FunSuite {
     )
 
     // almost valid encoding, problem b2 key comes before b1, wich is unordered
-//    expectBad(
-//      dictionaryP,
-//      "d1:a1:a2:b2i2e2:b1i1e1:c1:ce",
-//      InvalidDictionary(UnorderedOrEqualKeys(bstring("b2"), bstring("b1")))
-//    ) //munit is bad
+    expectBad(
+      dictionaryP,
+      "d1:a1:a2:b2i2e2:b1i1e1:c1:ce",
+      InvalidDictionary(UnorderedOrEqualKeys(bstring("b2"), bstring("b1")))
+    )
 
     // duplicated key problem
-//    expectBad(
-//      dictionaryP,
-//      "d0:0:0:0:e",
-//      InvalidDictionary(UnorderedOrEqualKeys(bstring(""), bstring("")))
-//    ) //munit bad
+    expectBad(
+      dictionaryP,
+      "d0:0:0:0:e",
+      InvalidDictionary(UnorderedOrEqualKeys(bstring(""), bstring("")))
+    )
 
     // duplicated key problem not immediately after
-//    expectBad(
-//      dictionaryP,
-//      "d0:0:1:s0:0:1:se",
-//      InvalidDictionary(UnorderedOrEqualKeys(bstring("s"), bstring("")))
-//    ) // munit bad
+    expectBad(
+      dictionaryP,
+      "d0:0:1:s0:0:1:se",
+      InvalidDictionary(UnorderedOrEqualKeys(bstring("s"), bstring("")))
+    )
   }
 
   test("dictionaryP ✔ - valid inputs") {
-//    expectOk(
-//      dictionaryP,
-//      "d0:lee",
-//      bdictionary(
-//        bstring("") -> blist()
-//      ),
-//      ""
-//    ) // munit bad
+    expectOk(
+      dictionaryP,
+      "d0:lee",
+      bdictionary(
+        bstring("") -> blist()
+      ),
+      ""
+    )
 
-//    expectOk(
-//      dictionaryP,
-//      "d0:i0eefuuu",
-//      bdictionary(
-//        bstring("") -> binteger(0)
-//      ),
-//      "fuuu"
-//    )// munit bad
+    expectOk(
+      dictionaryP,
+      "d0:i0eefuuu",
+      bdictionary(
+        bstring("") -> binteger(0)
+      ),
+      "fuuu"
+    )
 
-//    expectOk(
-//      dictionaryP,
-//      "d1:a3:hey2:b1i0e2:b2le1:cl3:mome1:dd2:fu3:baree...",
-//      bdictionary(
-//        bstring("a") -> bstring("hey"),
-//        bstring("b1") -> binteger(0),
-//        bstring("b2") -> blist(),
-//        bstring("c") -> blist(bstring("mom")),
-//        bstring("d") -> bdictionary(
-//          bstring("fu") -> bstring("bar")
-//        )
-//      ),
-//      "..."
-//    ) // munit bad
+    expectOk(
+      dictionaryP,
+      "d1:a3:hey2:b1i0e2:b2le1:cl3:mome1:dd2:fu3:baree...",
+      bdictionary(
+        bstring("a")  -> bstring("hey"),
+        bstring("b1") -> binteger(0),
+        bstring("b2") -> blist(),
+        bstring("c")  -> blist(bstring("mom")),
+        bstring("d")  -> bdictionary(
+          bstring("fu") -> bstring("bar")
+        )
+      ),
+      "..."
+    )
 
     // from spec examples:
-//    expectOk(
-//      dictionaryP,
-//      "d3:cow3:moo4:spam4:eggse",
-//      bdictionary(
-//        bstring("cow") -> bstring("moo"),
-//        bstring("spam") -> bstring("eggs")
-//      ),
-//      ""
-//    ) // munit bad
+    expectOk(
+      dictionaryP,
+      "d3:cow3:moo4:spam4:eggse",
+      bdictionary(
+        bstring("cow")  -> bstring("moo"),
+        bstring("spam") -> bstring("eggs")
+      ),
+      ""
+    )
 
-//    expectOk(
-//      dictionaryP,
-//      "d4:spaml1:a1:bee",
-//      bdictionary(
-//        bstring("spam") -> blist(bstring("a"), bstring("b"))
-//      ),
-//      ""
-//    ) // munit bad
+    expectOk(
+      dictionaryP,
+      "d4:spaml1:a1:bee",
+      bdictionary(
+        bstring("spam") -> blist(bstring("a"), bstring("b"))
+      ),
+      ""
+    )
 
-//    expectOk(
-//      dictionaryP,
-//      "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee",
-//      bdictionary(
-//        bstring("publisher") -> bstring("bob"),
-//        bstring("publisher-webpage") -> bstring("www.example.com"),
-//        bstring("publisher.location") -> bstring("home")
-//      ),
-//      ""
-//    ) // munit bad
+    expectOk(
+      dictionaryP,
+      "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee",
+      bdictionary(
+        bstring("publisher")          -> bstring("bob"),
+        bstring("publisher-webpage")  -> bstring("www.example.com"),
+        bstring("publisher.location") -> bstring("home")
+      ),
+      ""
+    )
 
     expectOk(
       dictionaryP,

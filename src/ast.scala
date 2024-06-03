@@ -14,19 +14,32 @@ import java.util.Comparator
 //              value, we could represent this as a BigDecimal, or a union of possible
 //              types, like Integer | Long | BigDecimal.
 //
+//  - List - The list doesn't need to be all of the same type and can be any of the other
+//           known Bencode types all mixed together. In scala would be what we usually call
+//           as HList or could be maybe encoded with the new Tuple syntax of scala 3.
+//
 //  - Dictionary - it needs to be explicit ordered by the keys on the encoded values.
 //                 It seems straighforward to represent that at this level by a list,
 //                 which we can validate at the procotol level to be correct, then at
 //                 an higher level we can convert that to a Map which the user can then
 //                 access with wtv pattern they want.
-//                 The keys need to be lexographhic ordered which if I eventually change the
-//                 BString to be raw bytes, I'm not sure how it's gonna look...
+//                 The keys need to be lexographhic ordered and no duplicates can occur.
 
 enum Bencode derives CanEqual {
   case BString(v: Array[Byte])
   case BInteger(v: Long)
   case BList(v: List[Bencode])
   case BDictionary(v: List[(BString, Bencode)])
+
+  override def equals(o: Any): Boolean = {
+    (this, o) match {
+      case (BString(a), BString(b))         => a.sameElements(b)
+      case (BInteger(a), BInteger(b))       => a == b
+      case (BList(a), BList(b))             => a == b
+      case (BDictionary(a), BDictionary(b)) => a == b
+      case _                                => false
+    }
+  }
 
   override def toString: String = this match {
     case BString(v) =>
@@ -44,6 +57,7 @@ enum Bencode derives CanEqual {
 }
 
 object Bencode {
+
   def bstring(s: String): BString      = BString(s.getBytes("UTF-8"))
   def bstring(b: Array[Byte]): BString = BString(b)
 
