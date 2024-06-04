@@ -9,6 +9,7 @@ import cats.effect.*
 import cats.effect.std.Console
 import com.monovore.decline.*
 import fs2.io.*
+import scodec.bits.ByteVector
 
 object Main extends IOApp {
 
@@ -35,49 +36,40 @@ object Main extends IOApp {
 
                case Program.Decode(input) =>
                   val source = input match {
-                     case "-" => fs2.io.stdinUtf8[IO](1024)
-                     case _   => fs2.Stream.emit(input)
+                     case "-" => fs2.io.stdin[IO](10)
+                     case _   => fs2.Stream.emit(input).through(fs2.text.utf8.encode)
                   }
 
-                  val r = source
+                  source.compile
+                     .to(ByteVector)
                      .map(decode)
-                     .evalMap {
+                     .flatMap {
                         case Right(v @ Bencode.BString(parsed), remaining) =>
                            IO.println(s"toString: ${v}") *>
-                              IO.println(s"Decoded value: ${String(parsed)}") *>
-                              IO.println(
-                                s"Remaining unparsed input: ${remaining}"
-                              )
+                              IO.println(s"Decoded value raw: ${parsed}") *>
+                              IO.println(s"Decoded value utf8: ${parsed.decodeUtf8Lenient}") *>
+                              IO.println(s"Remaining unparsed input: ${remaining}")
 
                         case Right(v @ Bencode.BInteger(parsed), remaining) =>
                            IO.println(s"toString: ${v}") *>
                               IO.println(s"Decoded value: ${parsed}") *>
-                              IO.println(
-                                s"Remaining unparsed input: ${remaining}"
-                              )
+                              IO.println(s"Remaining unparsed input: ${remaining}")
 
                         case Right(v @ Bencode.BList(parsed), remaining) =>
                            IO.println(s"toString: ${v}") *>
                               IO.println(s"Decoded value: ${parsed}") *>
-                              IO.println(
-                                s"Remaining unparsed input: ${remaining}"
-                              )
+                              IO.println(s"Remaining unparsed input: ${remaining}")
 
                         case Right(v @ Bencode.BDictionary(parsed), remaining) =>
                            IO.println(s"toString: ${v}") *>
                               IO.println(s"Decoded value: ${parsed}") *>
-                              IO.println(
-                                s"Remaining unparsed input: ${remaining}"
-                              )
+                              IO.println(s"Remaining unparsed input: ${remaining}")
 
                         case Left(error) =>
                            IO.println("Couldn't decode given input") *>
                               IO.println(error)
                      }
-                     .compile
-                     .drain
-
-                  r.as(ExitCode.Success)
+                     .as(ExitCode.Success)
 
                case Program.Encode(input) =>
                   // encode(input)

@@ -309,7 +309,7 @@ private def isASCIIDigit(c: Byte) = zero <= c && c <= nine
 // ------ Failure Details ------:
 
 enum ParseError {
-   case Unexpected(ctx: ParseContext, found: Byte, expected: List[ExpectedToken])
+   case Unexpected(ctx: ParseContext, found: ByteVector, expected: List[ExpectedToken])
    case UnexpectedEOI(ctx: ParseContext, expected: List[ExpectedToken])
 
    case InvalidString(detail: StringErrDetail)
@@ -319,7 +319,7 @@ enum ParseError {
 
 object ParseError {
    def unexpected(ctx: ParseContext, found: Byte, expected: ExpectedToken*) =
-      Unexpected(ctx, found, expected.toList)
+      Unexpected(ctx, ByteVector(found), expected.toList)
 
    def unexpectedEOI(ctx: ParseContext, expected: ExpectedToken*) =
       UnexpectedEOI(ctx, expected.toList)

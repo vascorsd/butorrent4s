@@ -26,24 +26,17 @@ import scodec.bits.*
 //                 The keys need to be lexographhic ordered and no duplicates can occur.
 
 enum Bencode derives CanEqual {
-   case BString(v: Array[Byte])
+   case BString(v: ByteVector)
    case BInteger(v: Long)
    case BList(v: List[Bencode])
    case BDictionary(v: List[(BString, Bencode)])
 
-   override def equals(o: Any): Boolean = {
-      (this, o) match {
-         case (BString(a), BString(b))         => a.sameElements(b)
-         case (BInteger(a), BInteger(b))       => a == b
-         case (BList(a), BList(b))             => a == b
-         case (BDictionary(a), BDictionary(b)) => a == b
-         case _                                => false
-      }
-   }
-
    override def toString: String = this match {
       case BString(v) =>
-         s"bstring\"${String(v, "UTF-8")}\""
+         v.decodeUtf8.fold(
+           _ => s"bstring[0x${v.toHex}]",
+           s => s"bstring\"${s}\""
+         )
 
       case BInteger(v) =>
          s"bint:${v}"
@@ -58,9 +51,9 @@ enum Bencode derives CanEqual {
 
 object Bencode {
 
-   def bstring(s: String): BString      = BString(s.getBytes("UTF-8"))
-   def bstring(b: Array[Byte]): BString = BString(b)
-   def bstring(bv: ByteVector): BString = BString(bv.toArray)
+   def bstring(s: String): BString      = BString(ByteVector.view(s.getBytes("UTF-8")))
+   def bstring(b: Array[Byte]): BString = BString(ByteVector(b))
+   def bstring(bv: ByteVector): BString = BString(bv)
 
    def binteger(l: Long): BInteger = BInteger(l)
 
@@ -92,5 +85,5 @@ object Bencode {
       def nonEmpty: Boolean = d.v.nonEmpty
    }
 
-   given Ordering[BString] = Ordering.by[BString, String] { bs => String(bs.v, "UTF-8") }
+   given Ordering[BString] = Ordering.by[BString, String] { bs => bs.v.decodeUtf8Lenient }
 }
