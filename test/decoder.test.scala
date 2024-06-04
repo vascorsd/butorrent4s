@@ -52,31 +52,31 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         byteStringP,
         ":",
-        Unexpected(ParseContext.BString, ByteVector(58), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes":", List(Digit))
       )
 
       expectBad(
         byteStringP,
         "s",
-        Unexpected(ParseContext.BString, ByteVector(115), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes"s", List(Digit))
       )
 
       expectBad(
         byteStringP,
         "ss",
-        Unexpected(ParseContext.BString, ByteVector(115), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes"s", List(Digit))
       )
 
       expectBad(
         byteStringP,
         "s:",
-        Unexpected(ParseContext.BString, ByteVector(115), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes"s", List(Digit))
       )
 
       expectBad(
         byteStringP,
         "ss:",
-        Unexpected(ParseContext.BString, ByteVector(115), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes"s", List(Digit))
       )
 
       expectBad(
@@ -88,25 +88,25 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         byteStringP,
         "1s",
-        Unexpected(ParseContext.BString, ByteVector(115), List(Digit, Colon))
+        Unexpected(ParseContext.BString, utf8Bytes"s", List(Digit, Colon))
       )
 
       expectBad(
         byteStringP,
         "1s:",
-        Unexpected(ParseContext.BString, ByteVector(115), List(Digit, Colon))
+        Unexpected(ParseContext.BString, utf8Bytes"s", List(Digit, Colon))
       )
 
       expectBad(
         byteStringP,
         "s1",
-        Unexpected(ParseContext.BString, ByteVector(115), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes"s", List(Digit))
       )
 
       expectBad(
         byteStringP,
         "s1:",
-        Unexpected(ParseContext.BString, ByteVector(115), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes"s", List(Digit))
       )
 
       expectBad(
@@ -121,7 +121,7 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         byteStringP,
         "١:s",
-        Unexpected(ParseContext.BString, ByteVector(-39), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes"١".take(1), List(Digit))
       )
    }
 
@@ -178,25 +178,25 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         integerP,
         "i010e",
-        Unexpected(ParseContext.BInteger, ByteVector(49), List(End))
+        Unexpected(ParseContext.BInteger, utf8Bytes"1", List(End))
       )
 
       expectBad(
         integerP,
         "iss1e",
-        Unexpected(ParseContext.BInteger, ByteVector(115), List(Digit, Minus))
+        Unexpected(ParseContext.BInteger, utf8Bytes"s", List(Digit, Minus))
       )
 
       expectBad(
         integerP,
         "i5ie",
-        Unexpected(ParseContext.BInteger, ByteVector(105), List(Digit, End))
+        Unexpected(ParseContext.BInteger, utf8Bytes"i", List(Digit, End))
       )
 
       expectBad(
         integerP,
         "i0101010101010000000000000",
-        Unexpected(ParseContext.BInteger, ByteVector(49), List(End))
+        Unexpected(ParseContext.BInteger, utf8Bytes"1", List(End))
       )
 
       expectBad(
@@ -208,19 +208,19 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         integerP,
         "i-s5e",
-        Unexpected(ParseContext.BInteger, ByteVector(115), List(Digit))
+        Unexpected(ParseContext.BInteger, utf8Bytes"s", List(Digit))
       )
 
       expectBad(
         integerP,
         "i-i1e",
-        Unexpected(ParseContext.BInteger, ByteVector(105), List(Digit))
+        Unexpected(ParseContext.BInteger, utf8Bytes"i", List(Digit))
       )
 
       expectBad(
         integerP,
         "i000000000000000000000000000000000000000000000000000000000000000000000000000000000000001e",
-        Unexpected(ParseContext.BInteger, ByteVector(48), List(End))
+        Unexpected(ParseContext.BInteger, utf8Bytes"0", List(End))
       )
 
       // making sure the only valid numbers are ascii decimal digits:
@@ -287,7 +287,7 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         listP,
         "e",
-        Unexpected(ParseContext.BList, ByteVector(101), List(L))
+        Unexpected(ParseContext.BList, utf8Bytes"e", List(L))
       )
 
       expectBad(
@@ -299,13 +299,13 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         listP,
         "l:e",
-        Unexpected(ParseContext.OneOf, ByteVector(58), List(I, L, D, Digit))
+        Unexpected(ParseContext.OneOf, utf8Bytes":", List(I, L, D, Digit))
       )
 
       expectBad(
         listP,
         "l1e",
-        Unexpected(ParseContext.BString, ByteVector(101), List(Digit, Colon))
+        Unexpected(ParseContext.BString, utf8Bytes"e", List(Digit, Colon))
       )
 
       expectBad(
@@ -317,19 +317,19 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         listP,
         "lie",
-        Unexpected(ParseContext.BInteger, ByteVector(101), List(Digit, Minus))
+        Unexpected(ParseContext.BInteger, utf8Bytes"e", List(Digit, Minus))
       )
 
       expectBad(
         listP,
         "li-ee",
-        Unexpected(ParseContext.BInteger, ByteVector(101), List(Digit))
+        Unexpected(ParseContext.BInteger, utf8Bytes"e", List(Digit))
       )
 
       expectBad(
         listP,
         "li10e5e",
-        Unexpected(ParseContext.BString, ByteVector(101), List(Digit, Colon))
+        Unexpected(ParseContext.BString, utf8Bytes"e", List(Digit, Colon))
       )
 
       expectBad(
@@ -341,7 +341,7 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         listP,
         "ll5e",
-        Unexpected(ParseContext.BString, ByteVector(101), List(Digit, Colon))
+        Unexpected(ParseContext.BString, utf8Bytes"e", List(Digit, Colon))
       )
    }
 
@@ -392,37 +392,37 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         dictionaryP,
         "e",
-        Unexpected(ParseContext.BDictionary, ByteVector(101), List(D))
+        Unexpected(ParseContext.BDictionary, utf8Bytes"e", List(D))
       )
 
       expectBad(
         dictionaryP,
         "die",
-        Unexpected(ParseContext.BString, ByteVector(105), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes"i", List(Digit))
       )
 
       expectBad(
         dictionaryP,
         "did",
-        Unexpected(ParseContext.BString, ByteVector(105), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes"i", List(Digit))
       )
 
       expectBad(
         dictionaryP,
         "dld",
-        Unexpected(ParseContext.BString, ByteVector(108), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes"l", List(Digit))
       )
 
       expectBad(
         dictionaryP,
         "dl5d",
-        Unexpected(ParseContext.BString, ByteVector(108), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes"l", List(Digit))
       )
 
       expectBad(
         dictionaryP,
         "dlelel",
-        Unexpected(ParseContext.BString, ByteVector(108), List(Digit))
+        Unexpected(ParseContext.BString, utf8Bytes"l", List(Digit))
       )
 
       expectBad(
@@ -434,7 +434,7 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         dictionaryP,
         "d5d",
-        Unexpected(ParseContext.BString, ByteVector(100), List(Digit, Colon))
+        Unexpected(ParseContext.BString, utf8Bytes"d", List(Digit, Colon))
       )
 
       expectBad(

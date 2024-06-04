@@ -52,7 +52,7 @@ enum Bencode derives CanEqual {
 object Bencode {
 
    def bstring(s: String): BString      = BString(ByteVector.view(s.getBytes("UTF-8")))
-   def bstring(b: Array[Byte]): BString = BString(ByteVector(b))
+   def bstring(b: Array[Byte]): BString = BString(ByteVector.view(b))
    def bstring(bv: ByteVector): BString = BString(bv)
 
    def binteger(l: Long): BInteger = BInteger(l)
