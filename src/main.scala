@@ -4,12 +4,13 @@
 package butorrent4s
 
 import cats.data.Validated
-import cats.syntax.monoid.*
 import cats.effect.*
 import cats.effect.std.Console
-import com.monovore.decline.*
+import cats.syntax.monoid.*
 import fs2.io.*
 import scodec.bits.ByteVector
+
+import com.monovore.decline.*
 
 object Main extends IOApp {
 
@@ -72,9 +73,15 @@ object Main extends IOApp {
                      .as(ExitCode.Success)
 
                case Program.Encode(input) =>
-                  // encode(input)
+                  val x = fs2.Stream
+                     .emits(encode(input).toSeq)
+                     .through(fs2.io.stdout[IO])
+                     .compile
+                     .drain
 
-                  IO.println("Encoding...").as(ExitCode.Success)
+                  x.as(ExitCode.Success)
+//                  IO.println(x) *>
+//                     IO.println("Encoding...").as(ExitCode.Success)
             }
       }
    }

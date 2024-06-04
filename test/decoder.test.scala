@@ -1,14 +1,16 @@
 package butorrent4s
 
+import scodec.bits.*
+import scodec.bits.ByteVector
+
+import munit.{Compare, Location}
+
 import Bencode.*
 import ParseError.{StringErrDetail, *}
 import ParseError.ExpectedToken.*
+import butorrent4s.ParseError.DictErrDetail.UnorderedOrEqualKeys
 import butorrent4s.ParseError.IntegerErrDetail.NegativeZero
 import butorrent4s.ParseError.StringErrDetail.{ParsingDataInsuficient, ParsingLen}
-import butorrent4s.ParseError.DictErrDetail.UnorderedOrEqualKeys
-import munit.{Compare, Location}
-import scodec.bits.ByteVector
-import scodec.bits.*
 
 class DecoderTests extends munit.FunSuite {
 

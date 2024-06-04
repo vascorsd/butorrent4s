@@ -1,21 +1,17 @@
 // SPDX-FileCopyrightText: 2024 Vasco Dias <m+code@vascorsd.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// TODO:
-//   - replace all of it by cats parser or any other custom parser combinators logic... (?)
-
 package butorrent4s
 
+import scala.annotation.tailrec
 import scala.math.Ordering.Implicits.*
 
 import cats.syntax.either.*
 import scodec.bits.*
 
+import ParseError.*
 import butorrent4s.Bencode
 import butorrent4s.Bencode.*
-import ParseError.*
-
-import scala.annotation.tailrec
 
 type ParseResult[+A] = Either[ParseError, (A, ByteVector)]
 

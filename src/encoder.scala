@@ -3,6 +3,11 @@
 
 package butorrent4s
 
-def encode(input: String) = {
-   ???
+import scodec.bits.*
+
+def encode(string: String): ByteVector = {
+   val b: Bencode.BString = Bencode.bstring(string)
+
+   ByteVector.encodeUtf8(s"${b.v.size}:").toOption.get
+      ++ b.v
 }
