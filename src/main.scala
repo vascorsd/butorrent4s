@@ -12,143 +12,143 @@ import fs2.io.*
 
 object Main extends IOApp {
 
-  def run(args: List[String]): IO[ExitCode] = {
-    val program = Program.description.parse(args)
+   def run(args: List[String]): IO[ExitCode] = {
+      val program = Program.description.parse(args)
 
-    program match {
-      case Left(help) =>
-        val exitCode = if help.errors.nonEmpty then {
-          ExitCode.Error
-        } else {
-          ExitCode.Success
-        }
-
-        //        Console[IO].errorln("pooper: ") *>
-        Console[IO]
-          .errorln(help)
-          .as(exitCode)
-
-      case Right(v) =>
-        v match {
-          case Program.Version =>
-            IO.println("Version 10").as(ExitCode.Success)
-
-          case Program.Decode(input) =>
-            val source = input match {
-              case "-" => fs2.io.stdinUtf8[IO](1024)
-              case _   => fs2.Stream.emit(input)
+      program match {
+         case Left(help) =>
+            val exitCode = if help.errors.nonEmpty then {
+               ExitCode.Error
+            } else {
+               ExitCode.Success
             }
 
-            val r = source
-              .map(decode)
-              .evalMap {
-                case Right(v @ Bencode.BString(parsed), remaining) =>
-                  IO.println(s"toString: ${v}") *>
-                    IO.println(s"Decoded value: ${String(parsed)}") *>
-                    IO.println(
-                      s"Remaining unparsed input: ${String(remaining)}"
-                    )
+            //        Console[IO].errorln("pooper: ") *>
+            Console[IO]
+               .errorln(help)
+               .as(exitCode)
 
-                case Right(v @ Bencode.BInteger(parsed), remaining) =>
-                  IO.println(s"toString: ${v}") *>
-                    IO.println(s"Decoded value: ${parsed}") *>
-                    IO.println(
-                      s"Remaining unparsed input: ${String(remaining)}"
-                    )
+         case Right(v) =>
+            v match {
+               case Program.Version =>
+                  IO.println("Version 10").as(ExitCode.Success)
 
-                case Right(v @ Bencode.BList(parsed), remaining) =>
-                  IO.println(s"toString: ${v}") *>
-                    IO.println(s"Decoded value: ${parsed}") *>
-                    IO.println(
-                      s"Remaining unparsed input: ${String(remaining)}"
-                    )
+               case Program.Decode(input) =>
+                  val source = input match {
+                     case "-" => fs2.io.stdinUtf8[IO](1024)
+                     case _   => fs2.Stream.emit(input)
+                  }
 
-                case Right(v @ Bencode.BDictionary(parsed), remaining) =>
-                  IO.println(s"toString: ${v}") *>
-                    IO.println(s"Decoded value: ${parsed}") *>
-                    IO.println(
-                      s"Remaining unparsed input: ${String(remaining)}"
-                    )
+                  val r = source
+                     .map(decode)
+                     .evalMap {
+                        case Right(v @ Bencode.BString(parsed), remaining) =>
+                           IO.println(s"toString: ${v}") *>
+                              IO.println(s"Decoded value: ${String(parsed)}") *>
+                              IO.println(
+                                s"Remaining unparsed input: ${remaining}"
+                              )
 
-                case Left(error) =>
-                  IO.println("Couldn't decode given input") *>
-                    IO.println(error)
-              }
-              .compile
-              .drain
+                        case Right(v @ Bencode.BInteger(parsed), remaining) =>
+                           IO.println(s"toString: ${v}") *>
+                              IO.println(s"Decoded value: ${parsed}") *>
+                              IO.println(
+                                s"Remaining unparsed input: ${remaining}"
+                              )
 
-            r.as(ExitCode.Success)
+                        case Right(v @ Bencode.BList(parsed), remaining) =>
+                           IO.println(s"toString: ${v}") *>
+                              IO.println(s"Decoded value: ${parsed}") *>
+                              IO.println(
+                                s"Remaining unparsed input: ${remaining}"
+                              )
 
-          case Program.Encode(input) =>
-            // encode(input)
+                        case Right(v @ Bencode.BDictionary(parsed), remaining) =>
+                           IO.println(s"toString: ${v}") *>
+                              IO.println(s"Decoded value: ${parsed}") *>
+                              IO.println(
+                                s"Remaining unparsed input: ${remaining}"
+                              )
 
-            IO.println("Encoding...").as(ExitCode.Success)
-        }
-    }
-  }
+                        case Left(error) =>
+                           IO.println("Couldn't decode given input") *>
+                              IO.println(error)
+                     }
+                     .compile
+                     .drain
+
+                  r.as(ExitCode.Success)
+
+               case Program.Encode(input) =>
+                  // encode(input)
+
+                  IO.println("Encoding...").as(ExitCode.Success)
+            }
+      }
+   }
 }
 
 enum Program derives CanEqual {
-  case Version
-  case Decode(input: String)
-  case Encode(input: String)
+   case Version
+   case Decode(input: String)
+   case Encode(input: String)
 }
 
 object Program {
-  def description = Command[Program](
-    name = "butorrent4s",
-    header = "Experiment with bitorrent protocol details",
-    helpFlag = false
-  )(fullProgram)
+   def description = Command[Program](
+     name = "butorrent4s",
+     header = "Experiment with bitorrent protocol details",
+     helpFlag = false
+   )(fullProgram)
 
-  def helpFlag: Opts[Nothing] =
-    Opts
-      .flag(
-        help = "Print help",
-        long = "help",
-        short = "h",
-        visibility = Visibility.Partial
-      )
-      .asHelp
+   def helpFlag: Opts[Nothing] =
+      Opts
+         .flag(
+           help = "Print help",
+           long = "help",
+           short = "h",
+           visibility = Visibility.Partial
+         )
+         .asHelp
 
-  def versionFlag: Opts[Program] =
-    Opts
-      .flag(
-        help = "Print version",
-        long = "version",
-        short = "V",
-        visibility = Visibility.Partial
-      )
-      .map(_ => Program.Version)
+   def versionFlag: Opts[Program] =
+      Opts
+         .flag(
+           help = "Print version",
+           long = "version",
+           short = "V",
+           visibility = Visibility.Partial
+         )
+         .map(_ => Program.Version)
 
-  def encodeCommand =
-    Command(
-      name = "encode",
-      header = "Encode Bencoded data",
-      helpFlag = false
-    ) {
-      helpFlag
-        .orElse(Opts.argument[String]("INPUT"))
-    }.map(Program.Encode(_))
+   def encodeCommand =
+      Command(
+        name = "encode",
+        header = "Encode Bencoded data",
+        helpFlag = false
+      ) {
+         helpFlag
+            .orElse(Opts.argument[String]("INPUT"))
+      }.map(Program.Encode(_))
 
-  def decodeCommand =
-    Command(
-      name = "decode",
-      header = "Decode Bencoded data",
-      helpFlag = false
-    ) {
-      helpFlag
-        .orElse(Opts.argument[String]("INPUT"))
-    }.map(Program.Decode(_))
+   def decodeCommand =
+      Command(
+        name = "decode",
+        header = "Decode Bencoded data",
+        helpFlag = false
+      ) {
+         helpFlag
+            .orElse(Opts.argument[String]("INPUT"))
+      }.map(Program.Decode(_))
 
-  def fullProgram: Opts[Program] =
-    versionFlag
-      .orElse(helpFlag)
-      .orElse(
-        Opts.subcommands(
-          encodeCommand,
-          decodeCommand
-        )
-      )
+   def fullProgram: Opts[Program] =
+      versionFlag
+         .orElse(helpFlag)
+         .orElse(
+           Opts.subcommands(
+             encodeCommand,
+             decodeCommand
+           )
+         )
 
 }

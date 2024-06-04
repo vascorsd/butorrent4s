@@ -26,71 +26,71 @@ import scodec.bits.*
 //                 The keys need to be lexographhic ordered and no duplicates can occur.
 
 enum Bencode derives CanEqual {
-  case BString(v: Array[Byte])
-  case BInteger(v: Long)
-  case BList(v: List[Bencode])
-  case BDictionary(v: List[(BString, Bencode)])
+   case BString(v: Array[Byte])
+   case BInteger(v: Long)
+   case BList(v: List[Bencode])
+   case BDictionary(v: List[(BString, Bencode)])
 
-  override def equals(o: Any): Boolean = {
-    (this, o) match {
-      case (BString(a), BString(b))         => a.sameElements(b)
-      case (BInteger(a), BInteger(b))       => a == b
-      case (BList(a), BList(b))             => a == b
-      case (BDictionary(a), BDictionary(b)) => a == b
-      case _                                => false
-    }
-  }
+   override def equals(o: Any): Boolean = {
+      (this, o) match {
+         case (BString(a), BString(b))         => a.sameElements(b)
+         case (BInteger(a), BInteger(b))       => a == b
+         case (BList(a), BList(b))             => a == b
+         case (BDictionary(a), BDictionary(b)) => a == b
+         case _                                => false
+      }
+   }
 
-  override def toString: String = this match {
-    case BString(v) =>
-      s"bstring\"${String(v, "UTF-8")}\""
+   override def toString: String = this match {
+      case BString(v) =>
+         s"bstring\"${String(v, "UTF-8")}\""
 
-    case BInteger(v) =>
-      s"bint:${v}"
+      case BInteger(v) =>
+         s"bint:${v}"
 
-    case BList(v) =>
-      s"blist[ ${v.map(_.toString()).mkString(", ")} ]"
+      case BList(v) =>
+         s"blist[ ${v.map(_.toString()).mkString(", ")} ]"
 
-    case BDictionary(v) =>
-      s"bdict{ ${v.map((k, v) => s"$k -> $v").mkString(", ")} }"
-  }
+      case BDictionary(v) =>
+         s"bdict{ ${v.map((k, v) => s"$k -> $v").mkString(", ")} }"
+   }
 }
 
 object Bencode {
 
-  def bstring(s: String): BString      = BString(s.getBytes("UTF-8"))
-  def bstring(b: Array[Byte]): BString = BString(b)
-  def bstring(bv: ByteVector): BString = BString(bv.toArray)
+   def bstring(s: String): BString      = BString(s.getBytes("UTF-8"))
+   def bstring(b: Array[Byte]): BString = BString(b)
+   def bstring(bv: ByteVector): BString = BString(bv.toArray)
 
-  def binteger(l: Long): BInteger = BInteger(l)
+   def binteger(l: Long): BInteger = BInteger(l)
 
-  def blist(): BList                     = BList(List.empty)
-  def blist(elem: Bencode): BList        = BList(elem :: Nil)
-  def blist(elems: Bencode*): BList      = BList(elems.toList)
-  def blist(elems: List[Bencode]): BList = BList(elems)
+   def blist(): BList                     = BList(List.empty)
+   def blist(elem: Bencode): BList        = BList(elem :: Nil)
+   def blist(elems: Bencode*): BList      = BList(elems.toList)
+   def blist(elems: List[Bencode]): BList = BList(elems)
 
-  def bdictionary(): BDictionary                                = BDictionary(Nil)
-  def bdictionary(k: BString, v: Bencode): BDictionary          = BDictionary(k -> v :: Nil)
-  def bdictionary(elems: (BString, Bencode)*): BDictionary      = BDictionary(elems.toList)
-  def bdictionary(elems: List[(BString, Bencode)]): BDictionary = BDictionary(elems)
+   def bdictionary(): BDictionary                                = BDictionary(Nil)
+   def bdictionary(k: BString, v: Bencode): BDictionary          = BDictionary(k -> v :: Nil)
+   def bdictionary(elems: (BString, Bencode)*): BDictionary      = BDictionary(elems.toList)
+   def bdictionary(elems: List[(BString, Bencode)]): BDictionary = BDictionary(elems)
 
-  extension (lc: BList.type) {
-    def empty: BList = blist()
-  }
+   extension (lc: BList.type) {
+      def empty: BList = blist()
+   }
 
-  extension (l: BList) {
-    def isEmpty: Boolean  = l.v.isEmpty
-    def nonEmpty: Boolean = l.v.nonEmpty
-  }
+   extension (l: BList) {
+      def isEmpty: Boolean  = l.v.isEmpty
+      def nonEmpty: Boolean = l.v.nonEmpty
+   }
 
-  extension (lc: BDictionary.type) {
-    def empty: BDictionary = bdictionary()
-  }
+   extension (lc: BDictionary.type) {
+      def empty: BDictionary = bdictionary()
+   }
 
-  extension (d: BDictionary) {
-    def isEmpty: Boolean  = d.v.isEmpty
-    def nonEmpty: Boolean = d.v.nonEmpty
-  }
+   extension (d: BDictionary) {
+      def isEmpty: Boolean  = d.v.isEmpty
+      def nonEmpty: Boolean = d.v.nonEmpty
+   }
 
-  given Ordering[BString] = Ordering.by[BString, String] { bs => String(bs.v, "UTF-8") }
+   given Ordering[BString] = Ordering.by[BString, String] { bs => String(bs.v, "UTF-8") }
 }

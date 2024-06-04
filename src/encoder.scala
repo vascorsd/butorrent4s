@@ -4,5 +4,5 @@
 package butorrent4s
 
 def encode(input: String) = {
-  ???
+   ???
 }
