@@ -346,24 +346,24 @@ class DecoderTests extends munit.FunSuite {
         Unexpected2(Context.BString, 3, Found.Token(utf8Bytes"e"), List(Digit, Colon))
       )
    }
-   /*
+
    test("listP ✔ - valid inputs") {
       expectOk(
-        listP,
+        listP.curried,
         "le",
         blist(),
         ""
       )
 
       expectOk(
-        listP,
+        listP.curried,
         "lee",
         blist(),
         "e"
       )
 
       expectOk(
-        listP,
+        listP.curried,
         "l0:e",
         blist(
           bstring("")
@@ -372,7 +372,7 @@ class DecoderTests extends munit.FunSuite {
       )
 
       expectOk(
-        listP,
+        listP.curried,
         "l0:2:ssi1elee",
         blist(
           bstring(""),
@@ -386,101 +386,101 @@ class DecoderTests extends munit.FunSuite {
 
    test("dictionaryP ❌ - invalid inputs") {
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "d",
-        UnexpectedEOI(Context.BString, List(Digit))
+        Unexpected2(Context.BString, 1, Found.EOI, List(Digit))
       )
 
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "e",
-        Unexpected(Context.BDictionary, utf8Bytes"e", List(D))
+        Unexpected2(Context.BDictionary, 0, Found.Token(utf8Bytes"e"), List(D))
       )
 
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "die",
-        Unexpected(Context.BString, utf8Bytes"i", List(Digit))
+        Unexpected2(Context.BString, 1, Found.Token(utf8Bytes"i"), List(Digit))
       )
 
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "did",
-        Unexpected(Context.BString, utf8Bytes"i", List(Digit))
+        Unexpected2(Context.BString, 1, Found.Token(utf8Bytes"i"), List(Digit))
       )
 
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "dld",
-        Unexpected(Context.BString, utf8Bytes"l", List(Digit))
+        Unexpected2(Context.BString, 1, Found.Token(utf8Bytes"l"), List(Digit))
       )
 
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "dl5d",
-        Unexpected(Context.BString, utf8Bytes"l", List(Digit))
+        Unexpected2(Context.BString, 1, Found.Token(utf8Bytes"l"), List(Digit))
       )
 
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "dlelel",
-        Unexpected(Context.BString, utf8Bytes"l", List(Digit))
+        Unexpected2(Context.BString, 1, Found.Token(utf8Bytes"l"), List(Digit))
       )
 
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "d5",
-        UnexpectedEOI(Context.BString, List(Digit, Colon))
+        Unexpected2(Context.BString, 2, Found.EOI, List(Digit, Colon))
       )
 
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "d5d",
-        Unexpected(Context.BString, utf8Bytes"d", List(Digit, Colon))
+        Unexpected2(Context.BString, 2, Found.Token(utf8Bytes"d"), List(Digit, Colon))
       )
 
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "d1:e",
-        UnexpectedEOI(Context.OneOf, List(I, L, D, Digit))
+        Unexpected2(Context.OneOf, 201, Found.EOI, List(I, L, D, Digit))
       )
 
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "d1:s",
-        UnexpectedEOI(Context.OneOf, List(I, L, D, Digit))
+        Unexpected2(Context.OneOf, 201, Found.EOI, List(I, L, D, Digit))
       )
 
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "d1:sle",
-        UnexpectedEOI(Context.BString, List(Digit))
+        Unexpected2(Context.BString, 301, Found.EOI, List(Digit))
       )
 
       // todo: fix
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "d1:sli0",
-        UnexpectedEOI(Context.BInteger, List(End))
+        Unexpected2(Context.BInteger, 204, Found.EOI, List(End))
       )
 
       // almost valid encoding, problem b2 key comes before b1, wich is unordered
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "d1:a1:a2:b2i2e2:b1i1e1:c1:ce",
         InvalidDictionary(UnorderedOrEqualKeys(bstring("b2"), bstring("b1")))
       )
 
       // duplicated key problem
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "d0:0:0:0:e",
         InvalidDictionary(UnorderedOrEqualKeys(bstring(""), bstring("")))
       )
 
       // duplicated key problem not immediately after
       expectBad(
-        dictionaryP,
+        dictionaryP.curried,
         "d0:0:1:s0:0:1:se",
         InvalidDictionary(UnorderedOrEqualKeys(bstring("s"), bstring("")))
       )
@@ -488,7 +488,7 @@ class DecoderTests extends munit.FunSuite {
 
    test("dictionaryP ✔ - valid inputs") {
       expectOk(
-        dictionaryP,
+        dictionaryP.curried,
         "d0:lee",
         bdictionary(
           bstring("") -> blist()
@@ -497,7 +497,7 @@ class DecoderTests extends munit.FunSuite {
       )
 
       expectOk(
-        dictionaryP,
+        dictionaryP.curried,
         "d0:i0eefuuu",
         bdictionary(
           bstring("") -> binteger(0)
@@ -506,7 +506,7 @@ class DecoderTests extends munit.FunSuite {
       )
 
       expectOk(
-        dictionaryP,
+        dictionaryP.curried,
         "d1:a3:hey2:b1i0e2:b2le1:cl3:mome1:dd2:fu3:baree...",
         bdictionary(
           bstring("a")  -> bstring("hey"),
@@ -522,7 +522,7 @@ class DecoderTests extends munit.FunSuite {
 
       // from spec examples:
       expectOk(
-        dictionaryP,
+        dictionaryP.curried,
         "d3:cow3:moo4:spam4:eggse",
         bdictionary(
           bstring("cow")  -> bstring("moo"),
@@ -532,7 +532,7 @@ class DecoderTests extends munit.FunSuite {
       )
 
       expectOk(
-        dictionaryP,
+        dictionaryP.curried,
         "d4:spaml1:a1:bee",
         bdictionary(
           bstring("spam") -> blist(bstring("a"), bstring("b"))
@@ -541,7 +541,7 @@ class DecoderTests extends munit.FunSuite {
       )
 
       expectOk(
-        dictionaryP,
+        dictionaryP.curried,
         "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee",
         bdictionary(
           bstring("publisher")          -> bstring("bob"),
@@ -552,10 +552,10 @@ class DecoderTests extends munit.FunSuite {
       )
 
       expectOk(
-        dictionaryP,
+        dictionaryP.curried,
         "de",
         bdictionary(),
         ""
       )
-   } */
+   }
 }

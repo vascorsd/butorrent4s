@@ -264,7 +264,8 @@ def dictionaryP(
    ): ParseResult[BDictionary] = {
       in.headOption match {
          case Some(`e`) => (bdictionary(elems.reverse), in.tail).asRight
-         case _         => // composition step
+         case _         =>
+            // composition step
             byteStringP(in, i) match {
                case err @ Left(_)                => err.rightCast
                case Right((parsedKey, unparsed)) =>
