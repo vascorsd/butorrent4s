@@ -48,67 +48,67 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         byteStringP.curried,
         "",
-        Unexpected2(Context.BString, 0, Found.EOI, List(Digit))
+        Unexpected(Context.BString, 0, Found.EOI, List(Digit))
       )
 
       expectBad(
         byteStringP.curried,
         ":",
-        Unexpected2(Context.BString, 0, Found.Token(utf8Bytes":"), List(Digit))
+        Unexpected(Context.BString, 0, Found.Token(utf8Bytes":"), List(Digit))
       )
 
       expectBad(
         byteStringP.curried,
         "s",
-        Unexpected2(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
+        Unexpected(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
       )
 
       expectBad(
         byteStringP.curried,
         "ss",
-        Unexpected2(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
+        Unexpected(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
       )
 
       expectBad(
         byteStringP.curried,
         "s:",
-        Unexpected2(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
+        Unexpected(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
       )
 
       expectBad(
         byteStringP.curried,
         "ss:",
-        Unexpected2(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
+        Unexpected(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
       )
 
       expectBad(
         byteStringP.curried,
         "1",
-        Unexpected2(Context.BString, 1, Found.EOI, List(Digit, Colon))
+        Unexpected(Context.BString, 1, Found.EOI, List(Digit, Colon))
       )
 
       expectBad(
         byteStringP.curried,
         "1s",
-        Unexpected2(Context.BString, 1, Found.Token(utf8Bytes"s"), List(Digit, Colon))
+        Unexpected(Context.BString, 1, Found.Token(utf8Bytes"s"), List(Digit, Colon))
       )
 
       expectBad(
         byteStringP.curried,
         "1s:",
-        Unexpected2(Context.BString, 1, Found.Token(utf8Bytes"s"), List(Digit, Colon))
+        Unexpected(Context.BString, 1, Found.Token(utf8Bytes"s"), List(Digit, Colon))
       )
 
       expectBad(
         byteStringP.curried,
         "s1",
-        Unexpected2(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
+        Unexpected(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
       )
 
       expectBad(
         byteStringP.curried,
         "s1:",
-        Unexpected2(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
+        Unexpected(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
       )
 
       expectBad(
@@ -123,7 +123,7 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         byteStringP.curried,
         "١:s",
-        Unexpected2(Context.BString, 0, Found.Token(utf8Bytes"١".take(1)), List(Digit))
+        Unexpected(Context.BString, 0, Found.Token(utf8Bytes"١".take(1)), List(Digit))
       )
    }
 
@@ -180,25 +180,25 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         integerP.curried,
         "i010e",
-        Unexpected2(Context.BInteger, 2, Found.Token(utf8Bytes"1"), List(End))
+        Unexpected(Context.BInteger, 2, Found.Token(utf8Bytes"1"), List(End))
       )
 
       expectBad(
         integerP.curried,
         "iss1e",
-        Unexpected2(Context.BInteger, 1, Found.Token(utf8Bytes"s"), List(Digit, Minus))
+        Unexpected(Context.BInteger, 1, Found.Token(utf8Bytes"s"), List(Digit, Minus))
       )
 
       expectBad(
         integerP.curried,
         "i5ie",
-        Unexpected2(Context.BInteger, 2, Found.Token(utf8Bytes"i"), List(Digit, End))
+        Unexpected(Context.BInteger, 2, Found.Token(utf8Bytes"i"), List(Digit, End))
       )
 
       expectBad(
         integerP.curried,
         "i0101010101010000000000000",
-        Unexpected2(Context.BInteger, 2, Found.Token(utf8Bytes"1"), List(End))
+        Unexpected(Context.BInteger, 2, Found.Token(utf8Bytes"1"), List(End))
       )
 
       expectBad(
@@ -210,19 +210,19 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         integerP.curried,
         "i-s5e",
-        Unexpected2(Context.BInteger, 2, Found.Token(utf8Bytes"s"), List(Digit))
+        Unexpected(Context.BInteger, 2, Found.Token(utf8Bytes"s"), List(Digit))
       )
 
       expectBad(
         integerP.curried,
         "i-i1e",
-        Unexpected2(Context.BInteger, 2, Found.Token(utf8Bytes"i"), List(Digit))
+        Unexpected(Context.BInteger, 2, Found.Token(utf8Bytes"i"), List(Digit))
       )
 
       expectBad(
         integerP.curried,
         "i000000000000000000000000000000000000000000000000000000000000000000000000000000000000001e",
-        Unexpected2(Context.BInteger, 2, Found.Token(utf8Bytes"0"), List(End))
+        Unexpected(Context.BInteger, 2, Found.Token(utf8Bytes"0"), List(End))
       )
 
       // making sure the only valid numbers are ascii decimal digits:
@@ -231,7 +231,7 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         integerP.curried,
         "i١٢e",
-        Unexpected2(Context.BInteger, 1, Found.Token(utf8Bytes"١".take(1)), List(Digit, Minus))
+        Unexpected(Context.BInteger, 1, Found.Token(utf8Bytes"١".take(1)), List(Digit, Minus))
       )
    }
 
@@ -283,67 +283,67 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         listP.curried,
         "",
-        Unexpected2(Context.BList, 0, Found.EOI, List(L))
+        Unexpected(Context.BList, 0, Found.EOI, List(L))
       )
 
       expectBad(
         listP.curried,
         "e",
-        Unexpected2(Context.BList, 0, Found.Token(utf8Bytes"e"), List(L))
+        Unexpected(Context.BList, 0, Found.Token(utf8Bytes"e"), List(L))
       )
 
       expectBad(
         listP.curried,
         "l",
-        Unexpected2(Context.BList, 1, Found.EOI, List(End, I, L, D, Digit))
+        Unexpected(Context.BList, 1, Found.EOI, List(End, I, L, D, Digit))
       )
 
       expectBad(
         listP.curried,
         "l:e",
-        Unexpected2(Context.OneOf, 1, Found.Token(utf8Bytes":"), List(I, L, D, Digit))
+        Unexpected(Context.OneOf, 1, Found.Token(utf8Bytes":"), List(I, L, D, Digit))
       )
 
       expectBad(
         listP.curried,
         "l1e",
-        Unexpected2(Context.BString, 2, Found.Token(utf8Bytes"e"), List(Digit, Colon))
+        Unexpected(Context.BString, 2, Found.Token(utf8Bytes"e"), List(Digit, Colon))
       )
 
       expectBad(
         listP.curried,
         "l1:e",
-        Unexpected2(Context.BList, 101, Found.EOI, List(End, I, L, D, Digit))
+        Unexpected(Context.BList, 101, Found.EOI, List(End, I, L, D, Digit))
       )
 
       expectBad(
         listP.curried,
         "lie",
-        Unexpected2(Context.BInteger, 2, Found.Token(utf8Bytes"e"), List(Digit, Minus))
+        Unexpected(Context.BInteger, 2, Found.Token(utf8Bytes"e"), List(Digit, Minus))
       )
 
       expectBad(
         listP.curried,
         "li-ee",
-        Unexpected2(Context.BInteger, 3, Found.Token(utf8Bytes"e"), List(Digit))
+        Unexpected(Context.BInteger, 3, Found.Token(utf8Bytes"e"), List(Digit))
       )
 
       expectBad(
         listP.curried,
         "li10e5e",
-        Unexpected2(Context.BString, 102, Found.Token(utf8Bytes"e"), List(Digit, Colon))
+        Unexpected(Context.BString, 102, Found.Token(utf8Bytes"e"), List(Digit, Colon))
       )
 
       expectBad(
         listP.curried,
         "lle",
-        Unexpected2(Context.BList, 101, Found.EOI, List(End, I, L, D, Digit))
+        Unexpected(Context.BList, 101, Found.EOI, List(End, I, L, D, Digit))
       )
 
       expectBad(
         listP.curried,
         "ll5e",
-        Unexpected2(Context.BString, 3, Found.Token(utf8Bytes"e"), List(Digit, Colon))
+        Unexpected(Context.BString, 3, Found.Token(utf8Bytes"e"), List(Digit, Colon))
       )
    }
 
@@ -388,80 +388,80 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         dictionaryP.curried,
         "d",
-        Unexpected2(Context.BString, 1, Found.EOI, List(Digit))
+        Unexpected(Context.BDictionary, 1, Found.EOI, List(End, Digit))
       )
 
       expectBad(
         dictionaryP.curried,
         "e",
-        Unexpected2(Context.BDictionary, 0, Found.Token(utf8Bytes"e"), List(D))
+        Unexpected(Context.BDictionary, 0, Found.Token(utf8Bytes"e"), List(D))
       )
 
       expectBad(
         dictionaryP.curried,
         "die",
-        Unexpected2(Context.BString, 1, Found.Token(utf8Bytes"i"), List(Digit))
+        Unexpected(Context.BString, 1, Found.Token(utf8Bytes"i"), List(Digit))
       )
 
       expectBad(
         dictionaryP.curried,
         "did",
-        Unexpected2(Context.BString, 1, Found.Token(utf8Bytes"i"), List(Digit))
+        Unexpected(Context.BString, 1, Found.Token(utf8Bytes"i"), List(Digit))
       )
 
       expectBad(
         dictionaryP.curried,
         "dld",
-        Unexpected2(Context.BString, 1, Found.Token(utf8Bytes"l"), List(Digit))
+        Unexpected(Context.BString, 1, Found.Token(utf8Bytes"l"), List(Digit))
       )
 
       expectBad(
         dictionaryP.curried,
         "dl5d",
-        Unexpected2(Context.BString, 1, Found.Token(utf8Bytes"l"), List(Digit))
+        Unexpected(Context.BString, 1, Found.Token(utf8Bytes"l"), List(Digit))
       )
 
       expectBad(
         dictionaryP.curried,
         "dlelel",
-        Unexpected2(Context.BString, 1, Found.Token(utf8Bytes"l"), List(Digit))
+        Unexpected(Context.BString, 1, Found.Token(utf8Bytes"l"), List(Digit))
       )
 
       expectBad(
         dictionaryP.curried,
         "d5",
-        Unexpected2(Context.BString, 2, Found.EOI, List(Digit, Colon))
+        Unexpected(Context.BString, 2, Found.EOI, List(Digit, Colon))
       )
 
       expectBad(
         dictionaryP.curried,
         "d5d",
-        Unexpected2(Context.BString, 2, Found.Token(utf8Bytes"d"), List(Digit, Colon))
+        Unexpected(Context.BString, 2, Found.Token(utf8Bytes"d"), List(Digit, Colon))
       )
 
       expectBad(
         dictionaryP.curried,
         "d1:e",
-        Unexpected2(Context.OneOf, 201, Found.EOI, List(I, L, D, Digit))
+        Unexpected(Context.OneOf, 201, Found.EOI, List(I, L, D, Digit))
       )
 
       expectBad(
         dictionaryP.curried,
         "d1:s",
-        Unexpected2(Context.OneOf, 201, Found.EOI, List(I, L, D, Digit))
+        Unexpected(Context.OneOf, 201, Found.EOI, List(I, L, D, Digit))
       )
 
       expectBad(
         dictionaryP.curried,
         "d1:sle",
-        Unexpected2(Context.BString, 301, Found.EOI, List(Digit))
+        Unexpected(Context.BDictionary, 301, Found.EOI, List(End, Digit))
       )
 
       // todo: fix
       expectBad(
         dictionaryP.curried,
         "d1:sli0",
-        Unexpected2(Context.BInteger, 204, Found.EOI, List(End))
+        Unexpected(Context.BInteger, 204, Found.EOI, List(End))
       )
 
       // almost valid encoding, problem b2 key comes before b1, wich is unordered

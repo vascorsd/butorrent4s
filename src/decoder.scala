@@ -41,8 +41,8 @@ def oneOfP(
       case Some(`i`)                  => integerP(input, idx)
       case Some(`l`)                  => listP(input, idx)
       case Some(`d`)                  => dictionaryP(input, idx)
-      case Some(b)                    => unexpected2(Context.OneOf, idx, b, expected*).asLeft
-      case None                       => unexpected2e(Context.OneOf, idx, expected*).asLeft
+      case Some(b)                    => unexpected(Context.OneOf, idx, b, expected*).asLeft
+      case None                       => unexpectedEnd(Context.OneOf, idx, expected*).asLeft
    }
 }
 
@@ -93,7 +93,7 @@ def byteStringP(
                then { Digit :: Nil }
                else { Digit :: Colon :: Nil }
 
-            unexpected2(Context.BString, i, b, expected*).asLeft
+            unexpected(Context.BString, i, b, expected*).asLeft
 
          // No more input available
          case None                             =>
@@ -102,7 +102,7 @@ def byteStringP(
                then { Digit :: Nil }
                else { Digit :: Colon :: Nil }
 
-            unexpected2e(Context.BString, i, expected*).asLeft
+            unexpectedEnd(Context.BString, i, expected*).asLeft
       }
    }
 
@@ -153,8 +153,8 @@ def integerP(
                .getOrElse(InvalidInteger.parsing(ByteVector.view(digitsBytes)).asLeft)
 
          case Some(d) if isASCIIDigit(d) => loop(negative, in.tail, i + 1, d :: digits)
-         case Some(b)                    => unexpected2(Context.BInteger, i, b, Digit, End).asLeft
-         case None                       => unexpected2e(Context.BInteger, i, Digit, End).asLeft
+         case Some(b)                    => unexpected(Context.BInteger, i, b, Digit, End).asLeft
+         case None                       => unexpectedEnd(Context.BInteger, i, Digit, End).asLeft
       }
    }
 
@@ -169,25 +169,25 @@ def integerP(
             case Some(`zero`) =>
                input.drop(2).headOption match {
                   case Some(`e`) => (binteger(0L), input.drop(3)).asRight
-                  case Some(b)   => unexpected2(Context.BInteger, idx + 2, b, End).asLeft
-                  case None      => unexpected2e(Context.BInteger, idx + 2, End).asLeft
+                  case Some(b)   => unexpected(Context.BInteger, idx + 2, b, End).asLeft
+                  case None      => unexpectedEnd(Context.BInteger, idx + 2, End).asLeft
                }
 
             case Some(`minus`) =>
                input.drop(2).headOption match {
                   case Some(b @ `zero`)           => InvalidInteger.negativeZero().asLeft
                   case Some(d) if isASCIIDigit(d) => loop(negative = true, input.drop(3), idx + 3, d :: Nil)
-                  case Some(b)                    => unexpected2(Context.BInteger, idx + 2, b, Digit).asLeft
-                  case None                       => unexpected2e(Context.BInteger, idx + 2, Digit).asLeft
+                  case Some(b)                    => unexpected(Context.BInteger, idx + 2, b, Digit).asLeft
+                  case None                       => unexpectedEnd(Context.BInteger, idx + 2, Digit).asLeft
                }
 
             case Some(d) if isASCIIDigit(d) => loop(negative = false, input.drop(2), idx + 2, d :: Nil)
-            case Some(b)                    => unexpected2(Context.BInteger, idx + 1, b, Digit, Minus).asLeft
-            case None                       => unexpected2e(Context.BInteger, idx + 1, Digit, Minus).asLeft
+            case Some(b)                    => unexpected(Context.BInteger, idx + 1, b, Digit, Minus).asLeft
+            case None                       => unexpectedEnd(Context.BInteger, idx + 1, Digit, Minus).asLeft
          }
 
-      case Some(b) => unexpected2(Context.BInteger, idx, b, I).asLeft
-      case None    => unexpected2e(Context.BInteger, idx, I).asLeft
+      case Some(b) => unexpected(Context.BInteger, idx, b, I).asLeft
+      case None    => unexpectedEnd(Context.BInteger, idx, I).asLeft
    }
 }
 
@@ -219,21 +219,21 @@ def listP(
    ): ParseResult[BList] = {
       in.headOption match {
          case Some(`e`) => (blist(elems.reverse), in.tail).asRight
-         case Some(b)   => // composition step.
+         case Some(_)   => // composition step.
             oneOfP(in, i) match {
                case err @ Left(_)             => err.rightCast
                case Right((parsed, unparsed)) =>
                   // todo: need the position consumed coming from the return value of previous parser
                   loop(unparsed, i + 100, parsed :: elems)
             }
-         case None      => unexpected2e(Context.BList, i, End, I, L, D, Digit).asLeft
+         case None      => unexpectedEnd(Context.BList, i, End, I, L, D, Digit).asLeft
       }
    }
 
    input.headOption match {
       case Some(`l`) => loop(input.tail, idx + 1, List.empty)
-      case Some(b)   => unexpected2(Context.BList, idx, b, L).asLeft
-      case None      => unexpected2e(Context.BList, idx, L).asLeft
+      case Some(b)   => unexpected(Context.BList, idx, b, L).asLeft
+      case None      => unexpectedEnd(Context.BList, idx, L).asLeft
    }
 }
 
@@ -264,7 +264,7 @@ def dictionaryP(
    ): ParseResult[BDictionary] = {
       in.headOption match {
          case Some(`e`) => (bdictionary(elems.reverse), in.tail).asRight
-         case _         =>
+         case Some(_)   =>
             // composition step
             byteStringP(in, i) match {
                case err @ Left(_)                => err.rightCast
@@ -291,20 +291,21 @@ def dictionaryP(
                      InvalidDictionary.unorderedOrEqualKeys(elems.head._1, parsedKey).asLeft
                   }
             }
+         case None      => unexpectedEnd(Context.BDictionary, i, End, Digit).asLeft
       }
    }
 
    input.headOption match {
       case Some(`d`) => loop(input.tail, idx + 1, List.empty)
-      case Some(b)   => unexpected2(Context.BDictionary, idx, b, D).asLeft
-      case None      => unexpected2e(Context.BDictionary, idx, D).asLeft
+      case Some(b)   => unexpected(Context.BDictionary, idx, b, D).asLeft
+      case None      => unexpectedEnd(Context.BDictionary, idx, D).asLeft
    }
 }
 
 // ------ Failure Details ------:
 
 enum ParseError {
-   case Unexpected2(ctx: Context, position: Long, found: Found, expected: List[Expected])
+   case Unexpected(ctx: Context, position: Long, found: Found, expected: List[Expected])
    case Invalid2(ctx: Context, position: Long)
 
    case InvalidString(detail: StringErrDetail)
@@ -341,11 +342,11 @@ object ParseError {
    }
 
    // ----- helpers to build errors easier -----
-   def unexpected2(ctx: Context, pos: Long, found: Byte, expected: Expected*) =
-      Unexpected2(ctx, pos, Found.Token(ByteVector(found)), expected.toList)
+   def unexpected(ctx: Context, pos: Long, found: Byte, expected: Expected*) =
+      Unexpected(ctx, pos, Found.Token(ByteVector(found)), expected.toList)
 
-   def unexpected2e(ctx: Context, pos: Long, expected: Expected*) =
-      Unexpected2(ctx, pos, Found.EOI, expected.toList)
+   def unexpectedEnd(ctx: Context, pos: Long, expected: Expected*) =
+      Unexpected(ctx, pos, Found.EOI, expected.toList)
 
    extension (ii: InvalidInteger.type) {
       def parsing(found: ByteVector) = InvalidInteger(IntegerErrDetail.Parsing(found))
