@@ -34,6 +34,10 @@ test:
 clean:
     scala-cli clean .
 
+# Open scala repl with the code of the project available
+console:
+    scala-cli repl .
+
 
 
 
