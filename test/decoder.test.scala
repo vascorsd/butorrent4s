@@ -234,45 +234,45 @@ class DecoderTests extends munit.FunSuite {
         Unexpected2(Context.BInteger, 1, Found.Token(utf8Bytes"١".take(1)), List(Digit, Minus))
       )
    }
-   /*
+
    test("integerP ✔ - valid inputs") {
       expectOk(
-        integerP,
+        integerP.curried,
         "i1e",
         binteger(1),
         ""
       )
 
       expectOk(
-        integerP,
+        integerP.curried,
         "i10e",
         binteger(10),
         ""
       )
 
       expectOk(
-        integerP,
+        integerP.curried,
         "i9999999999e",
         binteger(9999999999L),
         ""
       )
 
       expectOk(
-        integerP,
+        integerP.curried,
         "i0e",
         binteger(0),
         ""
       )
 
       expectOk(
-        integerP,
+        integerP.curried,
         "i-50e",
         binteger(-50L),
         ""
       )
 
       expectOk(
-        integerP,
+        integerP.curried,
         "i-9999999999e:",
         binteger(-9999999999L),
         ":"
@@ -281,72 +281,72 @@ class DecoderTests extends munit.FunSuite {
 
    test("listP ❌ - invalid inputs") {
       expectBad(
-        listP,
+        listP.curried,
         "",
-        UnexpectedEOI(Context.BList, List(L))
+        Unexpected2(Context.BList, 0, Found.EOI, List(L))
       )
 
       expectBad(
-        listP,
+        listP.curried,
         "e",
-        Unexpected(Context.BList, utf8Bytes"e", List(L))
+        Unexpected2(Context.BList, 0, Found.Token(utf8Bytes"e"), List(L))
       )
 
       expectBad(
-        listP,
+        listP.curried,
         "l",
-        UnexpectedEOI(Context.OneOf, List(I, L, D, Digit))
+        Unexpected2(Context.BList, 1, Found.EOI, List(End, I, L, D, Digit))
       )
 
       expectBad(
-        listP,
+        listP.curried,
         "l:e",
-        Unexpected(Context.OneOf, utf8Bytes":", List(I, L, D, Digit))
+        Unexpected2(Context.OneOf, 1, Found.Token(utf8Bytes":"), List(I, L, D, Digit))
       )
 
       expectBad(
-        listP,
+        listP.curried,
         "l1e",
-        Unexpected(Context.BString, utf8Bytes"e", List(Digit, Colon))
+        Unexpected2(Context.BString, 2, Found.Token(utf8Bytes"e"), List(Digit, Colon))
       )
 
       expectBad(
-        listP,
+        listP.curried,
         "l1:e",
-        UnexpectedEOI(Context.OneOf, List(I, L, D, Digit))
+        Unexpected2(Context.BList, 101, Found.EOI, List(End, I, L, D, Digit))
       )
 
       expectBad(
-        listP,
+        listP.curried,
         "lie",
-        Unexpected(Context.BInteger, utf8Bytes"e", List(Digit, Minus))
+        Unexpected2(Context.BInteger, 2, Found.Token(utf8Bytes"e"), List(Digit, Minus))
       )
 
       expectBad(
-        listP,
+        listP.curried,
         "li-ee",
-        Unexpected(Context.BInteger, utf8Bytes"e", List(Digit))
+        Unexpected2(Context.BInteger, 3, Found.Token(utf8Bytes"e"), List(Digit))
       )
 
       expectBad(
-        listP,
+        listP.curried,
         "li10e5e",
-        Unexpected(Context.BString, utf8Bytes"e", List(Digit, Colon))
+        Unexpected2(Context.BString, 102, Found.Token(utf8Bytes"e"), List(Digit, Colon))
       )
 
       expectBad(
-        listP,
+        listP.curried,
         "lle",
-        UnexpectedEOI(Context.OneOf, List(I, L, D, Digit))
+        Unexpected2(Context.BList, 101, Found.EOI, List(End, I, L, D, Digit))
       )
 
       expectBad(
-        listP,
+        listP.curried,
         "ll5e",
-        Unexpected(Context.BString, utf8Bytes"e", List(Digit, Colon))
+        Unexpected2(Context.BString, 3, Found.Token(utf8Bytes"e"), List(Digit, Colon))
       )
    }
-
+   /*
    test("listP ✔ - valid inputs") {
       expectOk(
         listP,

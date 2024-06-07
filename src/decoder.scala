@@ -219,13 +219,14 @@ def listP(
    ): ParseResult[BList] = {
       in.headOption match {
          case Some(`e`) => (blist(elems.reverse), in.tail).asRight
-         case _         => // composition step.
+         case Some(b)   => // composition step.
             oneOfP(in, i) match {
                case err @ Left(_)             => err.rightCast
                case Right((parsed, unparsed)) =>
                   // todo: need the position consumed coming from the return value of previous parser
                   loop(unparsed, i + 100, parsed :: elems)
             }
+         case None      => unexpected2e(Context.BList, i, End, I, L, D, Digit).asLeft
       }
    }
 
