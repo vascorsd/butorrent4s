@@ -3,6 +3,7 @@
 
 package butorrent4s
 
+import scala.Tuple
 import scala.annotation.tailrec
 import scala.math.Ordering.Implicits.*
 
@@ -21,7 +22,7 @@ type ParseState = (Long)
 // index of where stuff is being done on the input array.
 // maybe we should track the previous thing seen here and next expected...
 
-type ParseResult[+A] = Either[ParseError, (A, ByteVector)]
+type ParseResult[+A] = Either[ParseError, (A, ByteVector, Long)]
 
 def decode(input: String): ParseResult[Bencode]      = decode(ByteVector.view(input.getBytes("UTF-8")))
 def decode(input: Array[Byte]): ParseResult[Bencode] = decode(ByteVector(input))
@@ -74,13 +75,17 @@ def byteStringP(
             val strLen = String(strLenBytes, "UTF-8").toIntOption
 
             for {
-               len   <- strLen.toRight(InvalidString(StringErrDetail.ParsingLen(ByteVector(strLenBytes))))
-               value <- in.tail
-                           .consume(len) { data =>
-                              bstring(data).asRight
-                           }
-                           .leftMap(_ => InvalidString(StringErrDetail.ParsingDataInsuficient(len)))
-            } yield value.swap
+               len      <- strLen.toRight(InvalidString(StringErrDetail.ParsingLen(ByteVector(strLenBytes))))
+               consumed <- in.tail
+                              .consume(len) { data =>
+                                 bstring(data).asRight
+                              }
+                              .leftMap(_ => InvalidString(StringErrDetail.ParsingDataInsuficient(len)))
+            } yield {
+               val (unparsed, value) = consumed
+
+               (value, unparsed, i + 1 + len)
+            }
 
          // Next char is a digit, accumulate it, check next.
          case Some(d) if isASCIIDigit(d)       =>
@@ -148,7 +153,7 @@ def integerP(
                   // we need to recover the negative encoding for the number
                   val n = if negative then -p else p
 
-                  (binteger(n), in.tail).asRight
+                  (binteger(n), in.tail, i + 1).asRight
                }
                .getOrElse(InvalidInteger.parsing(ByteVector.view(digitsBytes)).asLeft)
 
@@ -168,7 +173,7 @@ def integerP(
          input.drop(1).headOption match {
             case Some(`zero`) =>
                input.drop(2).headOption match {
-                  case Some(`e`) => (binteger(0L), input.drop(3)).asRight
+                  case Some(`e`) => (binteger(0L), input.drop(3), idx + 3).asRight
                   case Some(b)   => unexpected(Context.BInteger, idx + 2, b, End).asLeft
                   case None      => unexpectedEnd(Context.BInteger, idx + 2, End).asLeft
                }
@@ -218,13 +223,12 @@ def listP(
        elems: List[Bencode]
    ): ParseResult[BList] = {
       in.headOption match {
-         case Some(`e`) => (blist(elems.reverse), in.tail).asRight
+         case Some(`e`) => (blist(elems.reverse), in.tail, i + 1).asRight
          case Some(_)   => // composition step.
             oneOfP(in, i) match {
-               case err @ Left(_)             => err.rightCast
-               case Right((parsed, unparsed)) =>
-                  // todo: need the position consumed coming from the return value of previous parser
-                  loop(unparsed, i + 100, parsed :: elems)
+               case err @ Left(_)                    => err.rightCast
+               case Right((parsed, unparsed, elemL)) =>
+                  loop(unparsed, elemL, parsed :: elems)
             }
          case None      => unexpectedEnd(Context.BList, i, End, I, L, D, Digit).asLeft
       }
@@ -263,14 +267,12 @@ def dictionaryP(
        elems: List[(BString, Bencode)]
    ): ParseResult[BDictionary] = {
       in.headOption match {
-         case Some(`e`) => (bdictionary(elems.reverse), in.tail).asRight
+         case Some(`e`) => (bdictionary(elems.reverse), in.tail, i + 1).asRight
          case Some(_)   =>
             // composition step
             byteStringP(in, i) match {
-               case err @ Left(_)                => err.rightCast
-               case Right((parsedKey, unparsed)) =>
-                  // todo: need the position consumed coming from the return value of previous parser
-
+               case err @ Left(_)                      => err.rightCast
+               case Right((parsedKey, unparsed, keyL)) =>
                   // enforce ordering (lexicographic) of keys and no duplicates,
                   val isNewKeyValid =
                      elems.headOption
@@ -281,10 +283,10 @@ def dictionaryP(
 
                   if isNewKeyValid then {
                      // read the value:
-                     oneOfP(unparsed, i + 200) match {
-                        case err @ Left(_)                  => err.rightCast
-                        case Right((parsedValue, unparsed)) =>
-                           loop(unparsed, i + 300, (parsedKey, parsedValue) :: elems)
+                     oneOfP(unparsed, keyL) match {
+                        case err @ Left(_)                          => err.rightCast
+                        case Right((parsedValue, unparsed, valueL)) =>
+                           loop(unparsed, valueL, (parsedKey, parsedValue) :: elems)
                      }
                   } else {
                      // todo: add position of error

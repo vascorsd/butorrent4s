@@ -17,8 +17,7 @@ class DecoderTests extends munit.FunSuite {
    def expectBad[A](
        parser: ByteVector => Long => ParseResult[A],
        input: String,
-       result: ParseError,
-       unparsedInput: String = "" // todo ?
+       result: ParseError
    )(using Location) = {
       val in: ByteVector = ByteVector.view(input.getBytes("UTF-8"))
 
@@ -32,15 +31,17 @@ class DecoderTests extends munit.FunSuite {
        parser: ByteVector => Long => ParseResult[A],
        input: String,
        result: B,
-       unparsedInput: String
+       unparsedInput: String,
+       pos: Long = 0
    )(using Location, Compare[A, B]) = {
       val in: ByteVector = ByteVector.view(input.getBytes("UTF-8"))
 
       parser(in)(0) match {
-         case Left(value)               => fail("expected to test a Right value, got a Left on the parser")
-         case Right((parsed, unparsed)) =>
+         case Left(value)                         => fail("expected to test a Right value, got a Left on the parser")
+         case Right((parsed, unparsed, position)) =>
             assertEquals(parsed, result)
             assertEquals(unparsed, ByteVector.view(unparsedInput.getBytes("UTF-8")))
+            assertEquals(position, pos)
       }
    }
 
@@ -132,28 +133,32 @@ class DecoderTests extends munit.FunSuite {
         byteStringP.curried,
         "1:s",
         bstring("s"),
-        ""
+        "",
+        3
       )
 
       expectOk(
         byteStringP.curried,
         "0:",
         bstring(""),
-        ""
+        "",
+        2
       )
 
       expectOk(
         byteStringP.curried,
         "2:ss",
         bstring("ss"),
-        ""
+        "",
+        4
       )
 
       expectOk(
         byteStringP.curried,
         "10:ssssssssss",
         bstring("ssssssssss"),
-        ""
+        "",
+        13
       )
 
       // prove parser not too eager and allows extra bytes as unparsed
@@ -161,14 +166,16 @@ class DecoderTests extends munit.FunSuite {
         byteStringP.curried,
         "0:ss",
         bstring(""),
-        "ss"
+        "ss",
+        2
       )
 
       expectOk(
         byteStringP.curried,
         "1:ss",
         bstring("s"),
-        "s"
+        "s",
+        3
       )
 
       // todo: test limits of Ints. As is currently represented I can't even
@@ -240,42 +247,48 @@ class DecoderTests extends munit.FunSuite {
         integerP.curried,
         "i1e",
         binteger(1),
-        ""
+        "",
+        3
       )
 
       expectOk(
         integerP.curried,
         "i10e",
         binteger(10),
-        ""
+        "",
+        4
       )
 
       expectOk(
         integerP.curried,
         "i9999999999e",
         binteger(9999999999L),
-        ""
+        "",
+        12
       )
 
       expectOk(
         integerP.curried,
         "i0e",
         binteger(0),
-        ""
+        "",
+        3
       )
 
       expectOk(
         integerP.curried,
         "i-50e",
         binteger(-50L),
-        ""
+        "",
+        5
       )
 
       expectOk(
         integerP.curried,
         "i-9999999999e:",
         binteger(-9999999999L),
-        ":"
+        ":",
+        13
       )
    }
 
@@ -313,7 +326,7 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         listP.curried,
         "l1:e",
-        Unexpected(Context.BList, 101, Found.EOI, List(End, I, L, D, Digit))
+        Unexpected(Context.BList, 4, Found.EOI, List(End, I, L, D, Digit))
       )
 
       expectBad(
@@ -331,13 +344,13 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         listP.curried,
         "li10e5e",
-        Unexpected(Context.BString, 102, Found.Token(utf8Bytes"e"), List(Digit, Colon))
+        Unexpected(Context.BString, 6, Found.Token(utf8Bytes"e"), List(Digit, Colon))
       )
 
       expectBad(
         listP.curried,
         "lle",
-        Unexpected(Context.BList, 101, Found.EOI, List(End, I, L, D, Digit))
+        Unexpected(Context.BList, 3, Found.EOI, List(End, I, L, D, Digit))
       )
 
       expectBad(
@@ -352,14 +365,16 @@ class DecoderTests extends munit.FunSuite {
         listP.curried,
         "le",
         blist(),
-        ""
+        "",
+        2
       )
 
       expectOk(
         listP.curried,
         "lee",
         blist(),
-        "e"
+        "e",
+        2
       )
 
       expectOk(
@@ -368,7 +383,8 @@ class DecoderTests extends munit.FunSuite {
         blist(
           bstring("")
         ),
-        ""
+        "",
+        4
       )
 
       expectOk(
@@ -380,7 +396,8 @@ class DecoderTests extends munit.FunSuite {
           binteger(1L),
           blist()
         ),
-        ""
+        "",
+        13
       )
    }
 
@@ -442,26 +459,25 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         dictionaryP.curried,
         "d1:e",
-        Unexpected(Context.OneOf, 201, Found.EOI, List(I, L, D, Digit))
+        Unexpected(Context.OneOf, 4, Found.EOI, List(I, L, D, Digit))
       )
 
       expectBad(
         dictionaryP.curried,
         "d1:s",
-        Unexpected(Context.OneOf, 201, Found.EOI, List(I, L, D, Digit))
+        Unexpected(Context.OneOf, 4, Found.EOI, List(I, L, D, Digit))
       )
 
       expectBad(
         dictionaryP.curried,
         "d1:sle",
-        Unexpected(Context.BDictionary, 301, Found.EOI, List(End, Digit))
+        Unexpected(Context.BDictionary, 6, Found.EOI, List(End, Digit))
       )
 
-      // todo: fix
       expectBad(
         dictionaryP.curried,
         "d1:sli0",
-        Unexpected(Context.BInteger, 204, Found.EOI, List(End))
+        Unexpected(Context.BInteger, 7, Found.EOI, List(End))
       )
 
       // almost valid encoding, problem b2 key comes before b1, wich is unordered
@@ -493,7 +509,8 @@ class DecoderTests extends munit.FunSuite {
         bdictionary(
           bstring("") -> blist()
         ),
-        ""
+        "",
+        6
       )
 
       expectOk(
@@ -502,7 +519,8 @@ class DecoderTests extends munit.FunSuite {
         bdictionary(
           bstring("") -> binteger(0)
         ),
-        "fuuu"
+        "fuuu",
+        7
       )
 
       expectOk(
@@ -517,7 +535,8 @@ class DecoderTests extends munit.FunSuite {
             bstring("fu") -> bstring("bar")
           )
         ),
-        "..."
+        "...",
+        47
       )
 
       // from spec examples:
@@ -528,7 +547,8 @@ class DecoderTests extends munit.FunSuite {
           bstring("cow")  -> bstring("moo"),
           bstring("spam") -> bstring("eggs")
         ),
-        ""
+        "",
+        24
       )
 
       expectOk(
@@ -537,7 +557,8 @@ class DecoderTests extends munit.FunSuite {
         bdictionary(
           bstring("spam") -> blist(bstring("a"), bstring("b"))
         ),
-        ""
+        "",
+        16
       )
 
       expectOk(
@@ -548,14 +569,16 @@ class DecoderTests extends munit.FunSuite {
           bstring("publisher-webpage")  -> bstring("www.example.com"),
           bstring("publisher.location") -> bstring("home")
         ),
-        ""
+        "",
+        83
       )
 
       expectOk(
         dictionaryP.curried,
         "de",
         bdictionary(),
-        ""
+        "",
+        2
       )
    }
 }
