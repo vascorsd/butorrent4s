@@ -126,6 +126,13 @@ class DecoderTests extends munit.FunSuite {
         "١:s",
         Unexpected(Context.BString, 0, Found.Token(utf8Bytes"١".take(1)), List(Digit))
       )
+
+      // testing limits: max limit Int allowed.
+      val Left(err) =
+         byteStringP(
+           utf8Bytes"2147483648:" ++ ByteVector.fill(Int.MaxValue)(20)
+         ): @unchecked
+      assertEquals(err, InvalidString(ParsingLen(utf8Bytes"2147483648")))
    }
 
    test("byteStringP ✔ - valid inputs") {
@@ -178,9 +185,15 @@ class DecoderTests extends munit.FunSuite {
         3
       )
 
-      // todo: test limits of Ints. As is currently represented I can't even
-      //  create a string of the max size in the test.
-      // parseByteString("2147483647:")
+      // testing limits: max limit Int allowed.
+      // biggest problem found was atually the .toString being called from munit and blowing up there.
+      val Right((parsedS, remainingB, nextParserPos)) =
+         byteStringP(
+           utf8Bytes"2147483647:" ++ ByteVector.fill(Int.MaxValue)(20)
+         ): @unchecked
+      assertEquals(parsedS, bstring(ByteVector.fill(Int.MaxValue)(20)))
+      assertEquals(remainingB, utf8Bytes"")
+      assertEquals(nextParserPos, 2147483658L)
    }
 
    test("integerP ❌ - invalid inputs") {

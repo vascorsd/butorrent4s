@@ -33,10 +33,8 @@ enum Bencode derives CanEqual {
 
    override def toString: String = this match {
       case BString(v) =>
-         v.decodeUtf8.fold(
-           _ => s"bstring[0x${v.toHex}]",
-           s => s"bstring\"${s}\""
-         )
+         if v.size < 512 then s"bstring|${v.size}:0x${v.toHex}|"
+         else s"bstring|${v.size}:0x${v.take(512).toHex}...|"
 
       case BInteger(v) =>
          s"bint:${v}"
