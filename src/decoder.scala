@@ -7,6 +7,7 @@ import scala.Tuple
 import scala.annotation.tailrec
 import scala.math.Ordering.Implicits.*
 
+import cats.ApplicativeError
 import cats.syntax.either.*
 import scodec.bits.*
 
@@ -15,18 +16,10 @@ import butorrent4s.Bencode.*
 import butorrent4s.ParseError.{Context, *}
 import butorrent4s.ParseError.Expected.*
 
-// todo: it smells like that if I want to keep track of the index where errors occurr
-//       then I also need to keep track of the index when it is successful, which means I'm going to
-//       need to keep some State for the parser for both the succ and error cases and pass it around.
-type ParseState = (Long)
-// index of where stuff is being done on the input array.
-// maybe we should track the previous thing seen here and next expected...
+type ParseResult[+A] = Either[ParseError, (Long, ByteVector, A)]
 
-type ParseResult[+A] = Either[ParseError, (A, ByteVector, Long)]
-
-def decode(input: String): ParseResult[Bencode]      = decode(ByteVector.view(input.getBytes("UTF-8")))
-def decode(input: Array[Byte]): ParseResult[Bencode] = decode(ByteVector(input))
-def decode(input: ByteVector): ParseResult[Bencode]  = oneOfP(input)
+def decode(input: String): ParseResult[Bencode]     = decode(ByteVector.view(input.getBytes("UTF-8")))
+def decode(input: ByteVector): ParseResult[Bencode] = oneOfP(input)
 
 // -------- Internals ----------
 
@@ -61,8 +54,8 @@ def byteStringP(
 
    @tailrec
    def loop(
-       in: ByteVector,
        i: Long,
+       in: ByteVector,
        digits: List[Byte]
    ): ParseResult[BString] = {
       in.headOption match {
@@ -84,12 +77,12 @@ def byteStringP(
             } yield {
                val (unparsed, value) = consumed
 
-               (value, unparsed, i + 1 + len)
+               (i + 1 + len, unparsed, value)
             }
 
          // Next char is a digit, accumulate it, check next.
          case Some(d) if isASCIIDigit(d)       =>
-            loop(in.tail, i + 1, d :: digits)
+            loop(i + 1, in.tail, d :: digits)
 
          // No delimiter ':' and no digits, bad input
          case Some(b)                          =>
@@ -111,7 +104,7 @@ def byteStringP(
       }
    }
 
-   loop(input, idx, List.empty)
+   loop(idx, input, List.empty)
 }
 
 def integerP(
@@ -139,10 +132,10 @@ def integerP(
 
    @tailrec
    def loop(
-       negative: Boolean,
-       in: ByteVector,
        i: Long,
-       digits: List[Byte] // by design is always non-empty
+       in: ByteVector,
+       negative: Boolean,
+       digits: List[Byte] // by design, always non-empty
    ): ParseResult[BInteger] = {
       in.headOption match {
          case Some(`e`) =>
@@ -153,11 +146,11 @@ def integerP(
                   // we need to recover the negative encoding for the number
                   val n = if negative then -p else p
 
-                  (binteger(n), in.tail, i + 1).asRight
+                  (i + 1, in.tail, binteger(n)).asRight
                }
                .getOrElse(InvalidInteger.parsing(ByteVector.view(digitsBytes)).asLeft)
 
-         case Some(d) if isASCIIDigit(d) => loop(negative, in.tail, i + 1, d :: digits)
+         case Some(d) if isASCIIDigit(d) => loop(i + 1, in.tail, negative, d :: digits)
          case Some(b)                    => unexpected(Context.BInteger, i, b, Digit, End).asLeft
          case None                       => unexpectedEnd(Context.BInteger, i, Digit, End).asLeft
       }
@@ -173,7 +166,7 @@ def integerP(
          input.drop(1).headOption match {
             case Some(`zero`) =>
                input.drop(2).headOption match {
-                  case Some(`e`) => (binteger(0L), input.drop(3), idx + 3).asRight
+                  case Some(`e`) => (idx + 3, input.drop(3), binteger(0L)).asRight
                   case Some(b)   => unexpected(Context.BInteger, idx + 2, b, End).asLeft
                   case None      => unexpectedEnd(Context.BInteger, idx + 2, End).asLeft
                }
@@ -181,12 +174,12 @@ def integerP(
             case Some(`minus`) =>
                input.drop(2).headOption match {
                   case Some(b @ `zero`)           => InvalidInteger.negativeZero().asLeft
-                  case Some(d) if isASCIIDigit(d) => loop(negative = true, input.drop(3), idx + 3, d :: Nil)
+                  case Some(d) if isASCIIDigit(d) => loop(idx + 3, input.drop(3), negative = true, d :: Nil)
                   case Some(b)                    => unexpected(Context.BInteger, idx + 2, b, Digit).asLeft
                   case None                       => unexpectedEnd(Context.BInteger, idx + 2, Digit).asLeft
                }
 
-            case Some(d) if isASCIIDigit(d) => loop(negative = false, input.drop(2), idx + 2, d :: Nil)
+            case Some(d) if isASCIIDigit(d) => loop(idx + 2, input.drop(2), negative = false, d :: Nil)
             case Some(b)                    => unexpected(Context.BInteger, idx + 1, b, Digit, Minus).asLeft
             case None                       => unexpectedEnd(Context.BInteger, idx + 1, Digit, Minus).asLeft
          }
@@ -218,24 +211,24 @@ def listP(
 
    @tailrec
    def loop(
-       in: ByteVector,
        i: Long,
+       in: ByteVector,
        elems: List[Bencode]
    ): ParseResult[BList] = {
       in.headOption match {
-         case Some(`e`) => (blist(elems.reverse), in.tail, i + 1).asRight
-         case Some(_)   => // composition step.
+         case Some(`e`) => (i + 1, in.tail, blist(elems.reverse)).asRight
+         case Some(_)   =>
             oneOfP(in, i) match {
                case err @ Left(_)                    => err.rightCast
-               case Right((parsed, unparsed, elemL)) =>
-                  loop(unparsed, elemL, parsed :: elems)
+               case Right((elemL, unparsed, parsed)) =>
+                  loop(elemL, unparsed, parsed :: elems)
             }
          case None      => unexpectedEnd(Context.BList, i, End, I, L, D, Digit).asLeft
       }
    }
 
    input.headOption match {
-      case Some(`l`) => loop(input.tail, idx + 1, List.empty)
+      case Some(`l`) => loop(idx + 1, input.tail, List.empty)
       case Some(b)   => unexpected(Context.BList, idx, b, L).asLeft
       case None      => unexpectedEnd(Context.BList, idx, L).asLeft
    }
@@ -262,18 +255,17 @@ def dictionaryP(
 
    @tailrec
    def loop(
-       in: ByteVector,
        i: Long,
+       in: ByteVector,
        elems: List[(BString, Bencode)]
    ): ParseResult[BDictionary] = {
       in.headOption match {
-         case Some(`e`) => (bdictionary(elems.reverse), in.tail, i + 1).asRight
+         case Some(`e`) => (i + 1, in.tail, bdictionary(elems.reverse)).asRight
          case Some(_)   =>
-            // composition step
             byteStringP(in, i) match {
                case err @ Left(_)                      => err.rightCast
-               case Right((parsedKey, unparsed, keyL)) =>
-                  // enforce ordering (lexicographic) of keys and no duplicates,
+               case Right((keyL, unparsed, parsedKey)) =>
+                  // enforce ordering (lexicographic) of keys and no duplicates
                   val isNewKeyValid =
                      elems.headOption
                         .map { (prevKey, _) =>
@@ -285,8 +277,8 @@ def dictionaryP(
                      // read the value:
                      oneOfP(unparsed, keyL) match {
                         case err @ Left(_)                          => err.rightCast
-                        case Right((parsedValue, unparsed, valueL)) =>
-                           loop(unparsed, valueL, (parsedKey, parsedValue) :: elems)
+                        case Right((valueL, unparsed, parsedValue)) =>
+                           loop(valueL, unparsed, (parsedKey, parsedValue) :: elems)
                      }
                   } else {
                      // todo: add position of error
@@ -298,7 +290,7 @@ def dictionaryP(
    }
 
    input.headOption match {
-      case Some(`d`) => loop(input.tail, idx + 1, List.empty)
+      case Some(`d`) => loop(idx + 1, input.tail, List.empty)
       case Some(b)   => unexpected(Context.BDictionary, idx, b, D).asLeft
       case None      => unexpectedEnd(Context.BDictionary, idx, D).asLeft
    }

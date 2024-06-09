@@ -45,23 +45,23 @@ object Main extends IOApp {
                      .to(ByteVector)
                      .map(decode)
                      .flatMap {
-                        case Right(v @ Bencode.BString(parsed), remaining, lll) =>
+                        case Right(idx, remaining, v @ Bencode.BString(parsed)) =>
                            IO.println(s"toString: ${v}") *>
                               IO.println(s"Decoded value raw: ${parsed}") *>
                               IO.println(s"Decoded value utf8: ${parsed.decodeUtf8Lenient}") *>
                               IO.println(s"Remaining unparsed input: ${remaining}")
 
-                        case Right(v @ Bencode.BInteger(parsed), remaining, lll) =>
+                        case Right(idx, remaining, v @ Bencode.BInteger(parsed)) =>
                            IO.println(s"toString: ${v}") *>
                               IO.println(s"Decoded value: ${parsed}") *>
                               IO.println(s"Remaining unparsed input: ${remaining}")
 
-                        case Right(v @ Bencode.BList(parsed), remaining, lll) =>
+                        case Right(idx, remaining, v @ Bencode.BList(parsed)) =>
                            IO.println(s"toString: ${v}") *>
                               IO.println(s"Decoded value: ${parsed}") *>
                               IO.println(s"Remaining unparsed input: ${remaining}")
 
-                        case Right(v @ Bencode.BDictionary(parsed), remaining, lll) =>
+                        case Right(idx, remaining, v @ Bencode.BDictionary(parsed)) =>
                            IO.println(s"toString: ${v}") *>
                               IO.println(s"Decoded value: ${parsed}") *>
                               IO.println(s"Remaining unparsed input: ${remaining}")

@@ -32,13 +32,13 @@ class DecoderTests extends munit.FunSuite {
        input: String,
        result: B,
        unparsedInput: String,
-       pos: Long = 0
+       pos: Long
    )(using Location, Compare[A, B]) = {
       val in: ByteVector = ByteVector.view(input.getBytes("UTF-8"))
 
       parser(in)(0) match {
          case Left(value)                         => fail("expected to test a Right value, got a Left on the parser")
-         case Right((parsed, unparsed, position)) =>
+         case Right((position, unparsed, parsed)) =>
             assertEquals(parsed, result)
             assertEquals(unparsed, ByteVector.view(unparsedInput.getBytes("UTF-8")))
             assertEquals(position, pos)
@@ -187,7 +187,7 @@ class DecoderTests extends munit.FunSuite {
 
       // testing limits: max limit Int allowed.
       // biggest problem found was atually the .toString being called from munit and blowing up there.
-      val Right((parsedS, remainingB, nextParserPos)) =
+      val Right((nextParserPos, remainingB, parsedS)) =
          byteStringP(
            utf8Bytes"2147483647:" ++ ByteVector.fill(Int.MaxValue)(20)
          ): @unchecked
