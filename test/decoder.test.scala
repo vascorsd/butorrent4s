@@ -8,9 +8,6 @@ import munit.{Compare, Location}
 import Bencode.*
 import ParseError.*
 import ParseError.Expected.*
-import butorrent4s.ParseError.DictErrDetail.UnorderedOrEqualKeys
-import butorrent4s.ParseError.IntegerErrDetail.NegativeZero
-import butorrent4s.ParseError.StringErrDetail.{ParsingDataInsuficient, ParsingLen}
 
 class DecoderTests extends munit.FunSuite {
 
@@ -112,10 +109,15 @@ class DecoderTests extends munit.FunSuite {
         Unexpected(Context.BString, 0, Found.Token(utf8Bytes"s"), List(Digit))
       )
 
+      // todo: leading zeros on bytestring valid?
       expectBad(
         byteStringP.curried,
         "01:",
-        InvalidString(ParsingDataInsuficient(1))
+        Parsing(
+          Context.BString,
+          2,
+          ParseError.Detail.MsgFor("Unable to parse enough data. Not found the wanted '1 bytes'", utf8Bytes"")
+        )
       )
 
       // making sure the only valid numbers are ascii decimal digits:
@@ -132,7 +134,14 @@ class DecoderTests extends munit.FunSuite {
          byteStringP(
            utf8Bytes"2147483648:" ++ ByteVector.fill(Int.MaxValue)(20)
          ): @unchecked
-      assertEquals(err, InvalidString(ParsingLen(utf8Bytes"2147483648")))
+      assertEquals(
+        err,
+        Parsing(
+          Context.BString,
+          10,
+          ParseError.Detail.MsgFor("Unable to parse 'length' from given bytes", utf8Bytes"2147483648")
+        )
+      )
    }
 
    test("byteStringP ✔ - valid inputs") {
@@ -224,7 +233,11 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         integerP.curried,
         "i-0e",
-        InvalidInteger(NegativeZero)
+        Parsing(
+          Context.BInteger,
+          2,
+          ParseError.Detail.MsgFor("Unable to parse 'negative zero'", utf8Bytes"i-0")
+        )
       )
 
       expectBad(
@@ -497,8 +510,12 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         dictionaryP.curried,
         "d1:a1:a2:b2i2e2:b1i1e1:c1:ce",
-        InvalidDictionary(
-          UnorderedOrEqualKeys(bstring("b2").tryIntoBStringOfString.get, bstring("b1").tryIntoBStringOfString.get)
+        Parsing(
+          Context.BDictionary,
+          17,
+          ParseError.Detail.Msg(
+            "Unable to use given key. Keys need to be ordered. 'b2' < 'b1' is false."
+          )
         )
       )
 
@@ -506,8 +523,12 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         dictionaryP.curried,
         "d0:0:0:0:e",
-        InvalidDictionary(
-          UnorderedOrEqualKeys(bstring("").tryIntoBStringOfString.get, bstring("").tryIntoBStringOfString.get)
+        Parsing(
+          Context.BDictionary,
+          6,
+          ParseError.Detail.Msg(
+            "Unable to use given key. Keys need to be ordered. '' < '' is false."
+          )
         )
       )
 
@@ -515,8 +536,12 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         dictionaryP.curried,
         "d0:0:1:s0:0:1:se",
-        InvalidDictionary(
-          UnorderedOrEqualKeys(bstring("s").tryIntoBStringOfString.get, bstring("").tryIntoBStringOfString.get)
+        Parsing(
+          Context.BDictionary,
+          11,
+          ParseError.Detail.Msg(
+            "Unable to use given key. Keys need to be ordered. 's' < '' is false."
+          )
         )
       )
    }

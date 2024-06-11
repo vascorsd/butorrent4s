@@ -10,8 +10,7 @@ import scodec.bits.*
 
 import butorrent4s.Bencode
 import butorrent4s.Bencode.*
-import butorrent4s.ParseError.{Context, *}
-import butorrent4s.ParseError.DictErrDetail.InvalidKeyEncoding
+import butorrent4s.ParseError.*
 import butorrent4s.ParseError.Expected.*
 
 type ParseResult[+A] = Either[ParseError, (Long, ByteVector, A)]
@@ -33,8 +32,8 @@ def oneOfP(
       case Some(`i`)                  => integerP(input, idx)
       case Some(`l`)                  => listP(input, idx)
       case Some(`d`)                  => dictionaryP(input, idx)
-      case Some(b)                    => unexpected(Context.OneOf, idx, b, expected*).asLeft
-      case None                       => unexpectedEnd(Context.OneOf, idx, expected*).asLeft
+      case Some(b)                    => unexpectedErr(Context.OneOf, idx, b, expected*).asLeft
+      case None                       => unexpectedEndErr(Context.OneOf, idx, expected*).asLeft
    }
 }
 
@@ -66,12 +65,26 @@ def byteStringP(
             val strLen = String(strLenBytes, "UTF-8").toIntOption
 
             for {
-               len      <- strLen.toRight(InvalidString(StringErrDetail.ParsingLen(ByteVector(strLenBytes))))
+               len      <- strLen.toRight(
+                             parsingMsgBytesErr(
+                               Context.BString,
+                               i,
+                               "Unable to parse 'length' from given bytes",
+                               ByteVector.view(strLenBytes)
+                             )
+                           )
                consumed <- in.tail
                               .consume(len) { data =>
                                  bstring(data).asRight
                               }
-                              .leftMap(_ => InvalidString(StringErrDetail.ParsingDataInsuficient(len)))
+                              .leftMap(_ =>
+                                 parsingMsgBytesErr(
+                                   Context.BString,
+                                   i,
+                                   s"Unable to parse enough data. Not found the wanted '$len bytes'",
+                                   in.tail
+                                 )
+                              )
             } yield {
                val (unparsed, value) = consumed
 
@@ -89,7 +102,7 @@ def byteStringP(
                then { Digit :: Nil }
                else { Digit :: Colon :: Nil }
 
-            unexpected(Context.BString, i, b, expected*).asLeft
+            unexpectedErr(Context.BString, i, b, expected*).asLeft
 
          // No more input available
          case None                             =>
@@ -98,7 +111,7 @@ def byteStringP(
                then { Digit :: Nil }
                else { Digit :: Colon :: Nil }
 
-            unexpectedEnd(Context.BString, i, expected*).asLeft
+            unexpectedEndErr(Context.BString, i, expected*).asLeft
       }
    }
 
@@ -146,11 +159,18 @@ def integerP(
 
                   (i + 1, in.tail, binteger(n)).asRight
                }
-               .getOrElse(InvalidInteger.parsing(ByteVector.view(digitsBytes)).asLeft)
+               .getOrElse(
+                 parsingMsgBytesErr(
+                   Context.BInteger,
+                   i,
+                   "Unable to parse 'digits'",
+                   ByteVector.view(digitsBytes)
+                 ).asLeft
+               )
 
          case Some(d) if isASCIIDigit(d) => loop(i + 1, in.tail, negative, d :: digits)
-         case Some(b)                    => unexpected(Context.BInteger, i, b, Digit, End).asLeft
-         case None                       => unexpectedEnd(Context.BInteger, i, Digit, End).asLeft
+         case Some(b)                    => unexpectedErr(Context.BInteger, i, b, Digit, End).asLeft
+         case None                       => unexpectedEndErr(Context.BInteger, i, Digit, End).asLeft
       }
    }
 
@@ -165,25 +185,31 @@ def integerP(
             case Some(`zero`) =>
                input.drop(2).headOption match {
                   case Some(`e`) => (idx + 3, input.drop(3), binteger(0L)).asRight
-                  case Some(b)   => unexpected(Context.BInteger, idx + 2, b, End).asLeft
-                  case None      => unexpectedEnd(Context.BInteger, idx + 2, End).asLeft
+                  case Some(b)   => unexpectedErr(Context.BInteger, idx + 2, b, End).asLeft
+                  case None      => unexpectedEndErr(Context.BInteger, idx + 2, End).asLeft
                }
 
             case Some(`minus`) =>
                input.drop(2).headOption match {
-                  case Some(b @ `zero`)           => InvalidInteger.negativeZero().asLeft
+                  case Some(b @ `zero`)           =>
+                     parsingMsgBytesErr(
+                       Context.BInteger,
+                       idx + 2,
+                       "Unable to parse 'negative zero'",
+                       input.take(3)
+                     ).asLeft
                   case Some(d) if isASCIIDigit(d) => loop(idx + 3, input.drop(3), negative = true, d :: Nil)
-                  case Some(b)                    => unexpected(Context.BInteger, idx + 2, b, Digit).asLeft
-                  case None                       => unexpectedEnd(Context.BInteger, idx + 2, Digit).asLeft
+                  case Some(b)                    => unexpectedErr(Context.BInteger, idx + 2, b, Digit).asLeft
+                  case None                       => unexpectedEndErr(Context.BInteger, idx + 2, Digit).asLeft
                }
 
             case Some(d) if isASCIIDigit(d) => loop(idx + 2, input.drop(2), negative = false, d :: Nil)
-            case Some(b)                    => unexpected(Context.BInteger, idx + 1, b, Digit, Minus).asLeft
-            case None                       => unexpectedEnd(Context.BInteger, idx + 1, Digit, Minus).asLeft
+            case Some(b)                    => unexpectedErr(Context.BInteger, idx + 1, b, Digit, Minus).asLeft
+            case None                       => unexpectedEndErr(Context.BInteger, idx + 1, Digit, Minus).asLeft
          }
 
-      case Some(b) => unexpected(Context.BInteger, idx, b, I).asLeft
-      case None    => unexpectedEnd(Context.BInteger, idx, I).asLeft
+      case Some(b) => unexpectedErr(Context.BInteger, idx, b, I).asLeft
+      case None    => unexpectedEndErr(Context.BInteger, idx, I).asLeft
    }
 }
 
@@ -221,14 +247,14 @@ def listP(
                case Right((elemL, unparsed, parsed)) =>
                   loop(elemL, unparsed, parsed :: elems)
             }
-         case None      => unexpectedEnd(Context.BList, i, End, I, L, D, Digit).asLeft
+         case None      => unexpectedEndErr(Context.BList, i, End, I, L, D, Digit).asLeft
       }
    }
 
    input.headOption match {
       case Some(`l`) => loop(idx + 1, input.tail, List.empty)
-      case Some(b)   => unexpected(Context.BList, idx, b, L).asLeft
-      case None      => unexpectedEnd(Context.BList, idx, L).asLeft
+      case Some(b)   => unexpectedErr(Context.BList, idx, b, L).asLeft
+      case None      => unexpectedEndErr(Context.BList, idx, L).asLeft
    }
 }
 
@@ -268,7 +294,13 @@ def dictionaryP(
                   // trying to get the new key in a textual representation.
                   parsedKey.tryIntoBStringOfString match {
                      // couldn't get a Text / String key from the Bstring bytes.
-                     case None => InvalidDictionary(InvalidKeyEncoding(parsedKey)).asLeft
+                     case None     =>
+                        parsingMsgBytesErr(
+                          Context.BDictionary,
+                          keyL - 1,
+                          "Unable to parse as valid UTF8 string to use as a dictionary key",
+                          parsedKey.getBytesUnsafe
+                        ).asLeft
 
                      // new valid Text / String key.
                      case Some(nk) =>
@@ -286,17 +318,24 @@ def dictionaryP(
                               case Right((valueL, unparsed, parsedValue)) =>
                                  loop(valueL, unparsed, (nk, parsedValue) :: elems)
                            }
-                        } else { InvalidDictionary.unorderedOrEqualKeys(elems.head._1, nk).asLeft }
+                        } else {
+                           parsingMsgErr(
+                             Context.BDictionary,
+                             keyL - 1,
+                             s"Unable to use given key. Keys need to be ordered. " +
+                                s"'${elems.head._1.getStringUnsafe}' < '${nk.getStringUnsafe}' is false."
+                           ).asLeft
+                        }
                   }
             }
-         case None      => unexpectedEnd(Context.BDictionary, i, End, Digit).asLeft
+         case None      => unexpectedEndErr(Context.BDictionary, i, End, Digit).asLeft
       }
    }
 
    input.headOption match {
       case Some(`d`) => loop(idx + 1, input.tail, List.empty)
-      case Some(b)   => unexpected(Context.BDictionary, idx, b, D).asLeft
-      case None      => unexpectedEnd(Context.BDictionary, idx, D).asLeft
+      case Some(b)   => unexpectedErr(Context.BDictionary, idx, b, D).asLeft
+      case None      => unexpectedEndErr(Context.BDictionary, idx, D).asLeft
    }
 }
 
@@ -304,11 +343,7 @@ def dictionaryP(
 
 enum ParseError {
    case Unexpected(ctx: Context, position: Long, found: Found, expected: List[Expected])
-   case Invalid2(ctx: Context, position: Long)
-
-   case InvalidString(detail: StringErrDetail)
-   case InvalidInteger(detail: IntegerErrDetail)
-   case InvalidDictionary(detail: DictErrDetail)
+   case Parsing(ctx: Context, position: Long, detail: Detail)
 }
 
 object ParseError {
@@ -325,36 +360,21 @@ object ParseError {
       case I, L, D, Digit, Minus, End, Colon
    }
 
-   enum StringErrDetail {
-      case ParsingLen(givenLen: ByteVector)
-      case ParsingDataInsuficient(wanted: Int)
-   }
-
-   enum IntegerErrDetail {
-      case Parsing(found: ByteVector)
-      case NegativeZero
-   }
-
-   enum DictErrDetail {
-      case InvalidKeyEncoding(key: BString)
-      case UnorderedOrEqualKeys(prev: BString, next: BString)
+   enum Detail {
+      case Msg(s: String)
+      case MsgFor(s: String, bytes: ByteVector)
    }
 
    // ----- helpers to build errors easier -----
-   def unexpected(ctx: Context, pos: Long, found: Byte, expected: Expected*) =
+   def unexpectedErr(ctx: Context, pos: Long, found: Byte, expected: Expected*) =
       Unexpected(ctx, pos, Found.Token(ByteVector(found)), expected.toList)
 
-   def unexpectedEnd(ctx: Context, pos: Long, expected: Expected*) =
+   def unexpectedEndErr(ctx: Context, pos: Long, expected: Expected*) =
       Unexpected(ctx, pos, Found.EOI, expected.toList)
 
-   extension (ii: InvalidInteger.type) {
-      def parsing(found: ByteVector) = InvalidInteger(IntegerErrDetail.Parsing(found))
-      def negativeZero()             = InvalidInteger(IntegerErrDetail.NegativeZero)
-   }
+   def parsingMsgErr(ctx: Context, pos: Long, msg: String) =
+      Parsing(ctx, pos, Detail.Msg(msg))
 
-   extension (ii: InvalidDictionary.type) {
-      def unorderedOrEqualKeys(prev: BString, next: BString) = InvalidDictionary(
-        DictErrDetail.UnorderedOrEqualKeys(prev, next)
-      )
-   }
+   def parsingMsgBytesErr(ctx: Context, pos: Long, msg: String, bytes: ByteVector) =
+      Parsing(ctx, pos, Detail.MsgFor(msg, bytes))
 }
