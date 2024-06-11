@@ -75,7 +75,7 @@ def byteStringP(
                            )
                consumed <- in.tail
                               .consume(len) { data =>
-                                 bstring(data).asRight
+                                 bstringWithVec(data).asRight
                               }
                               .leftMap(_ =>
                                  parsingMsgBytesErr(

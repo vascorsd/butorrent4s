@@ -148,7 +148,7 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         byteStringP.curried,
         "1:s",
-        bstring("s"),
+        bstringWithVec("s"),
         "",
         3
       )
@@ -156,7 +156,7 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         byteStringP.curried,
         "0:",
-        bstring(""),
+        bstringWithVec(""),
         "",
         2
       )
@@ -164,7 +164,7 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         byteStringP.curried,
         "2:ss",
-        bstring("ss"),
+        bstringWithVec("ss"),
         "",
         4
       )
@@ -172,7 +172,7 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         byteStringP.curried,
         "10:ssssssssss",
-        bstring("ssssssssss"),
+        bstringWithVec("ssssssssss"),
         "",
         13
       )
@@ -181,7 +181,7 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         byteStringP.curried,
         "0:ss",
-        bstring(""),
+        bstringWithVec(""),
         "ss",
         2
       )
@@ -189,7 +189,7 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         byteStringP.curried,
         "1:ss",
-        bstring("s"),
+        bstringWithVec("s"),
         "s",
         3
       )
@@ -200,7 +200,7 @@ class DecoderTests extends munit.FunSuite {
          byteStringP(
            utf8Bytes"2147483647:" ++ ByteVector.fill(Int.MaxValue)(20)
          ): @unchecked
-      assertEquals(parsedS, bstring(ByteVector.fill(Int.MaxValue)(20)))
+      assertEquals(parsedS, bstringWithVec(ByteVector.fill(Int.MaxValue)(20)))
       assertEquals(remainingB, utf8Bytes"")
       assertEquals(nextParserPos, 2147483658L)
    }
@@ -407,7 +407,7 @@ class DecoderTests extends munit.FunSuite {
         listP.curried,
         "l0:e",
         blist(
-          bstring("")
+          bstringWithVec("")
         ),
         "",
         4
@@ -417,8 +417,8 @@ class DecoderTests extends munit.FunSuite {
         listP.curried,
         "l0:2:ssi1elee",
         blist(
-          bstring(""),
-          bstring("ss"),
+          bstringWithVec(""),
+          bstringWithVec("ss"),
           binteger(1L),
           blist()
         ),
@@ -551,7 +551,7 @@ class DecoderTests extends munit.FunSuite {
         dictionaryP.curried,
         "d0:lee",
         bdictionary(
-          bstring("").tryIntoBStringOfString.get -> blist()
+          bstringWithStr("") -> blist()
         ),
         "",
         6
@@ -561,7 +561,7 @@ class DecoderTests extends munit.FunSuite {
         dictionaryP.curried,
         "d0:i0eefuuu",
         bdictionary(
-          bstring("").tryIntoBStringOfString.get -> binteger(0)
+          bstringWithStr("") -> binteger(0)
         ),
         "fuuu",
         7
@@ -571,12 +571,12 @@ class DecoderTests extends munit.FunSuite {
         dictionaryP.curried,
         "d1:a3:hey2:b1i0e2:b2le1:cl3:mome1:dd2:fu3:baree...",
         bdictionary(
-          bstring("a").tryIntoBStringOfString.get  -> bstring("hey"),
-          bstring("b1").tryIntoBStringOfString.get -> binteger(0),
-          bstring("b2").tryIntoBStringOfString.get -> blist(),
-          bstring("c").tryIntoBStringOfString.get  -> blist(bstring("mom")),
-          bstring("d").tryIntoBStringOfString.get  -> bdictionary(
-            bstring("fu").tryIntoBStringOfString.get -> bstring("bar")
+          bstringWithStr("a")  -> bstringWithVec("hey"),
+          bstringWithStr("b1") -> binteger(0),
+          bstringWithStr("b2") -> blist(),
+          bstringWithStr("c")  -> blist(bstringWithVec("mom")),
+          bstringWithStr("d")  -> bdictionary(
+            bstringWithStr("fu") -> bstringWithVec("bar")
           )
         ),
         "...",
@@ -588,8 +588,8 @@ class DecoderTests extends munit.FunSuite {
         dictionaryP.curried,
         "d3:cow3:moo4:spam4:eggse",
         bdictionary(
-          bstring("cow").tryIntoBStringOfString.get  -> bstring("moo"),
-          bstring("spam").tryIntoBStringOfString.get -> bstring("eggs")
+          bstringWithStr("cow")  -> bstringWithVec("moo"),
+          bstringWithStr("spam") -> bstringWithVec("eggs")
         ),
         "",
         24
@@ -599,7 +599,7 @@ class DecoderTests extends munit.FunSuite {
         dictionaryP.curried,
         "d4:spaml1:a1:bee",
         bdictionary(
-          bstring("spam").tryIntoBStringOfString.get -> blist(bstring("a"), bstring("b"))
+          bstringWithStr("spam") -> blist(bstringWithVec("a"), bstringWithVec("b"))
         ),
         "",
         16
@@ -609,9 +609,9 @@ class DecoderTests extends munit.FunSuite {
         dictionaryP.curried,
         "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee",
         bdictionary(
-          bstring("publisher").tryIntoBStringOfString.get          -> bstring("bob"),
-          bstring("publisher-webpage").tryIntoBStringOfString.get  -> bstring("www.example.com"),
-          bstring("publisher.location").tryIntoBStringOfString.get -> bstring("home")
+          bstringWithStr("publisher")          -> bstringWithVec("bob"),
+          bstringWithStr("publisher-webpage")  -> bstringWithVec("www.example.com"),
+          bstringWithStr("publisher.location") -> bstringWithVec("home")
         ),
         "",
         83
