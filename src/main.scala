@@ -48,7 +48,7 @@ object Main extends IOApp {
                         case Right(idx, remaining, v @ Bencode.BString(parsed)) =>
                            IO.println(s"toString: ${v}") *>
                               IO.println(s"Decoded value raw: ${parsed}") *>
-                              IO.println(s"Decoded value utf8: ${parsed.decodeUtf8Lenient}") *>
+                              IO.println(s"Decoded value utf8: ${v.tryIntoString}") *>
                               IO.println(s"Remaining unparsed input: ${remaining}")
 
                         case Right(idx, remaining, v @ Bencode.BInteger(parsed)) =>

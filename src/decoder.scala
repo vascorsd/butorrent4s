@@ -3,17 +3,15 @@
 
 package butorrent4s
 
-import scala.Tuple
 import scala.annotation.tailrec
-import scala.math.Ordering.Implicits.*
 
-import cats.ApplicativeError
 import cats.syntax.either.*
 import scodec.bits.*
 
 import butorrent4s.Bencode
 import butorrent4s.Bencode.*
 import butorrent4s.ParseError.{Context, *}
+import butorrent4s.ParseError.DictErrDetail.InvalidKeyEncoding
 import butorrent4s.ParseError.Expected.*
 
 type ParseResult[+A] = Either[ParseError, (Long, ByteVector, A)]
@@ -265,24 +263,30 @@ def dictionaryP(
             byteStringP(in, i) match {
                case err @ Left(_)                      => err.rightCast
                case Right((keyL, unparsed, parsedKey)) =>
-                  // enforce ordering (lexicographic) of keys and no duplicates
-                  val isNewKeyValid =
-                     elems.headOption
-                        .map { (prevKey, _) =>
-                           parsedKey > prevKey
-                        }
-                        .getOrElse(true)
+                  // enforcing ordering (lexicographic) of keys and no duplicates.
 
-                  if isNewKeyValid then {
-                     // read the value:
-                     oneOfP(unparsed, keyL) match {
-                        case err @ Left(_)                          => err.rightCast
-                        case Right((valueL, unparsed, parsedValue)) =>
-                           loop(valueL, unparsed, (parsedKey, parsedValue) :: elems)
-                     }
-                  } else {
-                     // todo: add position of error
-                     InvalidDictionary.unorderedOrEqualKeys(elems.head._1, parsedKey).asLeft
+                  // trying to get the new key in a textual representation.
+                  parsedKey.tryIntoBStringOfString match {
+                     // couldn't get a Text / String key from the Bstring bytes.
+                     case None => InvalidDictionary(InvalidKeyEncoding(parsedKey)).asLeft
+
+                     // new valid Text / String key.
+                     case Some(nk) =>
+                        // either we are on first key, so no previous key,
+                        // or we have a previous key which we know is valid text and
+                        // make sure is strictly after the previous one.
+                        val maybePrevKey = elems.headOption.map(_._1.getStringUnsafe)
+                        val validNewKey  = maybePrevKey.fold(true) { prevKey => nk.getStringUnsafe > prevKey }
+
+                        if validNewKey
+                        then {
+                           // read the value.
+                           oneOfP(unparsed, keyL) match {
+                              case err @ Left(_)                          => err.rightCast
+                              case Right((valueL, unparsed, parsedValue)) =>
+                                 loop(valueL, unparsed, (nk, parsedValue) :: elems)
+                           }
+                        } else { InvalidDictionary.unorderedOrEqualKeys(elems.head._1, nk).asLeft }
                   }
             }
          case None      => unexpectedEnd(Context.BDictionary, i, End, Digit).asLeft
@@ -332,6 +336,7 @@ object ParseError {
    }
 
    enum DictErrDetail {
+      case InvalidKeyEncoding(key: BString)
       case UnorderedOrEqualKeys(prev: BString, next: BString)
    }
 

@@ -497,21 +497,27 @@ class DecoderTests extends munit.FunSuite {
       expectBad(
         dictionaryP.curried,
         "d1:a1:a2:b2i2e2:b1i1e1:c1:ce",
-        InvalidDictionary(UnorderedOrEqualKeys(bstring("b2"), bstring("b1")))
+        InvalidDictionary(
+          UnorderedOrEqualKeys(bstring("b2").tryIntoBStringOfString.get, bstring("b1").tryIntoBStringOfString.get)
+        )
       )
 
       // duplicated key problem
       expectBad(
         dictionaryP.curried,
         "d0:0:0:0:e",
-        InvalidDictionary(UnorderedOrEqualKeys(bstring(""), bstring("")))
+        InvalidDictionary(
+          UnorderedOrEqualKeys(bstring("").tryIntoBStringOfString.get, bstring("").tryIntoBStringOfString.get)
+        )
       )
 
       // duplicated key problem not immediately after
       expectBad(
         dictionaryP.curried,
         "d0:0:1:s0:0:1:se",
-        InvalidDictionary(UnorderedOrEqualKeys(bstring("s"), bstring("")))
+        InvalidDictionary(
+          UnorderedOrEqualKeys(bstring("s").tryIntoBStringOfString.get, bstring("").tryIntoBStringOfString.get)
+        )
       )
    }
 
@@ -520,7 +526,7 @@ class DecoderTests extends munit.FunSuite {
         dictionaryP.curried,
         "d0:lee",
         bdictionary(
-          bstring("") -> blist()
+          bstring("").tryIntoBStringOfString.get -> blist()
         ),
         "",
         6
@@ -530,7 +536,7 @@ class DecoderTests extends munit.FunSuite {
         dictionaryP.curried,
         "d0:i0eefuuu",
         bdictionary(
-          bstring("") -> binteger(0)
+          bstring("").tryIntoBStringOfString.get -> binteger(0)
         ),
         "fuuu",
         7
@@ -540,12 +546,12 @@ class DecoderTests extends munit.FunSuite {
         dictionaryP.curried,
         "d1:a3:hey2:b1i0e2:b2le1:cl3:mome1:dd2:fu3:baree...",
         bdictionary(
-          bstring("a")  -> bstring("hey"),
-          bstring("b1") -> binteger(0),
-          bstring("b2") -> blist(),
-          bstring("c")  -> blist(bstring("mom")),
-          bstring("d")  -> bdictionary(
-            bstring("fu") -> bstring("bar")
+          bstring("a").tryIntoBStringOfString.get  -> bstring("hey"),
+          bstring("b1").tryIntoBStringOfString.get -> binteger(0),
+          bstring("b2").tryIntoBStringOfString.get -> blist(),
+          bstring("c").tryIntoBStringOfString.get  -> blist(bstring("mom")),
+          bstring("d").tryIntoBStringOfString.get  -> bdictionary(
+            bstring("fu").tryIntoBStringOfString.get -> bstring("bar")
           )
         ),
         "...",
@@ -557,8 +563,8 @@ class DecoderTests extends munit.FunSuite {
         dictionaryP.curried,
         "d3:cow3:moo4:spam4:eggse",
         bdictionary(
-          bstring("cow")  -> bstring("moo"),
-          bstring("spam") -> bstring("eggs")
+          bstring("cow").tryIntoBStringOfString.get  -> bstring("moo"),
+          bstring("spam").tryIntoBStringOfString.get -> bstring("eggs")
         ),
         "",
         24
@@ -568,7 +574,7 @@ class DecoderTests extends munit.FunSuite {
         dictionaryP.curried,
         "d4:spaml1:a1:bee",
         bdictionary(
-          bstring("spam") -> blist(bstring("a"), bstring("b"))
+          bstring("spam").tryIntoBStringOfString.get -> blist(bstring("a"), bstring("b"))
         ),
         "",
         16
@@ -578,9 +584,9 @@ class DecoderTests extends munit.FunSuite {
         dictionaryP.curried,
         "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee",
         bdictionary(
-          bstring("publisher")          -> bstring("bob"),
-          bstring("publisher-webpage")  -> bstring("www.example.com"),
-          bstring("publisher.location") -> bstring("home")
+          bstring("publisher").tryIntoBStringOfString.get          -> bstring("bob"),
+          bstring("publisher-webpage").tryIntoBStringOfString.get  -> bstring("www.example.com"),
+          bstring("publisher.location").tryIntoBStringOfString.get -> bstring("home")
         ),
         "",
         83

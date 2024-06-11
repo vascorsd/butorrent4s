@@ -26,15 +26,19 @@ import scodec.bits.*
 //                 The keys need to be lexographhic ordered and no duplicates can occur.
 
 enum Bencode derives CanEqual {
-   case BString(v: ByteVector)
+   case BString(v: ByteVector | String)
    case BInteger(v: Long)
    case BList(v: List[Bencode])
    case BDictionary(v: List[(BString, Bencode)])
 
    override def toString: String = this match {
-      case BString(v) =>
+      case BString(v: ByteVector) =>
          if v.size < 512 then s"bstring|${v.size}:0x${v.toHex}|"
          else s"bstring|${v.size}:0x${v.take(512).toHex}...|"
+
+      case BString(v: String) =>
+         if v.length < 512 then s"""bstring"${v}""""
+         else s"""bstring"${v.length}:${v.take(512)}...""""
 
       case BInteger(v) =>
          s"bint:${v}"
@@ -65,6 +69,29 @@ object Bencode {
    def bdictionary(elems: (BString, Bencode)*): BDictionary      = BDictionary(elems.toList)
    def bdictionary(elems: List[(BString, Bencode)]): BDictionary = BDictionary(elems)
 
+   extension (s: BString) {
+      inline def fold[A](whenBytesFn: ByteVector => A, whenStringFn: String => A): A = s match {
+         case BString(v: ByteVector) => whenBytesFn(v)
+         case BString(v: String)     => whenStringFn(v)
+      }
+
+      def isBytes: Boolean                        = fold(_ => true, _ => false)
+      def isString: Boolean                       = fold(_ => false, _ => true)
+      def tryIntoString: Option[String]           = fold(
+        bytes => bytes.decodeUtf8.toOption,
+        str => Some(str)
+      )
+      def tryIntoBStringOfString: Option[BString] = tryIntoString.map(BString(_))
+      def getStringUnsafe: String                 = fold(
+        _ => throw new NoSuchElementException("BString not 'String'"),
+        identity
+      )
+      def getBytesUnsafe: ByteVector              = fold(
+        identity,
+        _ => throw new NoSuchElementException("BString not 'ByteVector'")
+      )
+   }
+
    extension (lc: BList.type) {
       def empty: BList = blist()
    }
@@ -82,6 +109,4 @@ object Bencode {
       def isEmpty: Boolean  = d.v.isEmpty
       def nonEmpty: Boolean = d.v.nonEmpty
    }
-
-   given Ordering[BString] = Ordering.by[BString, String] { bs => bs.v.decodeUtf8Lenient }
 }
