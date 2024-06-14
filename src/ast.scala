@@ -26,19 +26,19 @@ import scodec.bits.*
 //                 The keys need to be lexographhic ordered and no duplicates can occur.
 
 enum Bencode derives CanEqual {
-   case BString(v: ByteVector | String)
-   case BInteger(v: Long)
-   case BList(v: List[Bencode])
-   case BDictionary(v: List[(BString, Bencode)])
+   case BString private[Bencode] (v: ByteVector | String)
+   case BInteger private[Bencode] (v: Long)
+   case BList private[Bencode] (v: List[Bencode])
+   case BDictionary private[Bencode] (v: List[(BString, Bencode)])
 
    override def toString: String = this match {
       case BString(v: ByteVector) =>
-         if v.size < 512 then s"bstring|${v.size}:0x${v.toHex}|"
-         else s"bstring|${v.size}:0x${v.take(512).toHex}...|"
+         if v.size < 200 then s"bstring|${v.size}:0x${v.toHex}|"
+         else s"bstring|${v.size}:0x${v.take(200).toHex}...|"
 
       case BString(v: String) =>
-         if v.length < 512 then s"""bstring"${v}""""
-         else s"""bstring"${v.length}:${v.take(512)}...""""
+         if v.length < 200 then s"""bstring"${v}""""
+         else s"""bstring"${v.length}:${v.take(200)}...""""
 
       case BInteger(v) =>
          s"bint:${v}"
@@ -53,17 +53,13 @@ enum Bencode derives CanEqual {
 
 object Bencode {
 
-   def bstringWithVec(s: String): BString      = BString(ByteVector.view(s.getBytes("UTF-8")))
-   def bstringWithVec(b: Array[Byte]): BString = BString(ByteVector.view(b))
-   def bstringWithVec(bv: ByteVector): BString = BString(bv)
-
-   def bstringWithStr(s: String): BString      = BString(String(s.getBytes("UTF-8"), "UTF-8"))
-   def bstringWithStr(b: Array[Byte]): BString = BString(String(b, "UTF-8"))
+   def bstringAsBytes(s: String): BString      = BString(ByteVector.view(s.getBytes("UTF-8")))
+   def bstringAsBytes(bv: ByteVector): BString = BString(bv)
+   def bstringAsStr(s: String): BString        = BString(String(s.getBytes("UTF-8"), "UTF-8"))
 
    def binteger(l: Long): BInteger = BInteger(l)
 
    def blist(): BList                     = BList(List.empty)
-   def blist(elem: Bencode): BList        = BList(elem :: Nil)
    def blist(elems: Bencode*): BList      = BList(elems.toList)
    def blist(elems: List[Bencode]): BList = BList(elems)
 
@@ -78,34 +74,26 @@ object Bencode {
          case BString(v: String)     => whenStringFn(v)
       }
 
-      def isBytes: Boolean                        = fold(_ => true, _ => false)
-      def isString: Boolean                       = fold(_ => false, _ => true)
-      def tryIntoString: Option[String]           = fold(
+      def isBytes: Boolean                     = fold(_ => true, _ => false)
+      def isString: Boolean                    = fold(_ => false, _ => true)
+      def tryIntoString: Option[String]        = fold(
         bytes => bytes.decodeUtf8.toOption,
         str => Some(str)
       )
-      def tryIntoBStringOfString: Option[BString] = tryIntoString.map(BString(_))
-      def getStringUnsafe: String                 = fold(
-        _ => throw new NoSuchElementException("BString not 'String'"),
+      def tryIntoBStringAsStr: Option[BString] = tryIntoString.map(BString(_))
+      def getStringUnsafe: String              = fold(
+        _ => throw new NoSuchElementException("BString is not 'String'"),
         identity
       )
-      def getBytesUnsafe: ByteVector              = fold(
+      def getBytesUnsafe: ByteVector           = fold(
         identity,
-        _ => throw new NoSuchElementException("BString not 'ByteVector'")
+        _ => throw new NoSuchElementException("BString is not 'ByteVector'")
       )
-   }
-
-   extension (lc: BList.type) {
-      def empty: BList = blist()
    }
 
    extension (l: BList) {
       def isEmpty: Boolean  = l.v.isEmpty
       def nonEmpty: Boolean = l.v.nonEmpty
-   }
-
-   extension (lc: BDictionary.type) {
-      def empty: BDictionary = bdictionary()
    }
 
    extension (d: BDictionary) {

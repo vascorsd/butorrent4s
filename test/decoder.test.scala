@@ -1,4 +1,9 @@
+// SPDX-FileCopyrightText: 2024 Vasco Dias <m+code@vascorsd.com>
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package butorrent4s
+
+import scala.annotation.{showAsInfix, targetName}
 
 import scodec.bits.*
 import scodec.bits.ByteVector
@@ -148,7 +153,7 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         byteStringP.curried,
         "1:s",
-        bstringWithVec("s"),
+        bstringAsBytes("s"),
         "",
         3
       )
@@ -156,7 +161,7 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         byteStringP.curried,
         "0:",
-        bstringWithVec(""),
+        bstringAsBytes(""),
         "",
         2
       )
@@ -164,7 +169,7 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         byteStringP.curried,
         "2:ss",
-        bstringWithVec("ss"),
+        bstringAsBytes("ss"),
         "",
         4
       )
@@ -172,7 +177,7 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         byteStringP.curried,
         "10:ssssssssss",
-        bstringWithVec("ssssssssss"),
+        bstringAsBytes("ssssssssss"),
         "",
         13
       )
@@ -181,7 +186,7 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         byteStringP.curried,
         "0:ss",
-        bstringWithVec(""),
+        bstringAsBytes(""),
         "ss",
         2
       )
@@ -189,7 +194,7 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         byteStringP.curried,
         "1:ss",
-        bstringWithVec("s"),
+        bstringAsBytes("s"),
         "s",
         3
       )
@@ -200,7 +205,7 @@ class DecoderTests extends munit.FunSuite {
          byteStringP(
            utf8Bytes"2147483647:" ++ ByteVector.fill(Int.MaxValue)(20)
          ): @unchecked
-      assertEquals(parsedS, bstringWithVec(ByteVector.fill(Int.MaxValue)(20)))
+      assertEquals(parsedS, bstringAsBytes(ByteVector.fill(Int.MaxValue)(20)))
       assertEquals(remainingB, utf8Bytes"")
       assertEquals(nextParserPos, 2147483658L)
    }
@@ -407,7 +412,7 @@ class DecoderTests extends munit.FunSuite {
         listP.curried,
         "l0:e",
         blist(
-          bstringWithVec("")
+          bstringAsBytes("")
         ),
         "",
         4
@@ -417,8 +422,8 @@ class DecoderTests extends munit.FunSuite {
         listP.curried,
         "l0:2:ssi1elee",
         blist(
-          bstringWithVec(""),
-          bstringWithVec("ss"),
+          bstringAsBytes(""),
+          bstringAsBytes("ss"),
           binteger(1L),
           blist()
         ),
@@ -550,8 +555,8 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         dictionaryP.curried,
         "d0:lee",
-        bdictionary(
-          bstringWithStr("") -> blist()
+        bdictionaryUnsafe(
+          bstringAsStr("") -> blist()
         ),
         "",
         6
@@ -560,8 +565,8 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         dictionaryP.curried,
         "d0:i0eefuuu",
-        bdictionary(
-          bstringWithStr("") -> binteger(0)
+        bdictionaryUnsafe(
+          bstringAsStr("") -> binteger(0)
         ),
         "fuuu",
         7
@@ -570,13 +575,13 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         dictionaryP.curried,
         "d1:a3:hey2:b1i0e2:b2le1:cl3:mome1:dd2:fu3:baree...",
-        bdictionary(
-          bstringWithStr("a")  -> bstringWithVec("hey"),
-          bstringWithStr("b1") -> binteger(0),
-          bstringWithStr("b2") -> blist(),
-          bstringWithStr("c")  -> blist(bstringWithVec("mom")),
-          bstringWithStr("d")  -> bdictionary(
-            bstringWithStr("fu") -> bstringWithVec("bar")
+        bdictionaryUnsafe(
+          bstringAsStr("a")  -> bstringAsBytes("hey"),
+          bstringAsStr("b1") -> binteger(0),
+          bstringAsStr("b2") -> blist(),
+          bstringAsStr("c")  -> blist(bstringAsBytes("mom")),
+          bstringAsStr("d")  -> bdictionaryUnsafe(
+            bstringAsStr("fu") -> bstringAsBytes("bar")
           )
         ),
         "...",
@@ -587,9 +592,9 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         dictionaryP.curried,
         "d3:cow3:moo4:spam4:eggse",
-        bdictionary(
-          bstringWithStr("cow")  -> bstringWithVec("moo"),
-          bstringWithStr("spam") -> bstringWithVec("eggs")
+        bdictionaryUnsafe(
+          bstringAsStr("cow")  -> bstringAsBytes("moo"),
+          bstringAsStr("spam") -> bstringAsBytes("eggs")
         ),
         "",
         24
@@ -598,8 +603,8 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         dictionaryP.curried,
         "d4:spaml1:a1:bee",
-        bdictionary(
-          bstringWithStr("spam") -> blist(bstringWithVec("a"), bstringWithVec("b"))
+        bdictionaryUnsafe(
+          bstringAsStr("spam") -> blist(bstringAsBytes("a"), bstringAsBytes("b"))
         ),
         "",
         16
@@ -608,10 +613,10 @@ class DecoderTests extends munit.FunSuite {
       expectOk(
         dictionaryP.curried,
         "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee",
-        bdictionary(
-          bstringWithStr("publisher")          -> bstringWithVec("bob"),
-          bstringWithStr("publisher-webpage")  -> bstringWithVec("www.example.com"),
-          bstringWithStr("publisher.location") -> bstringWithVec("home")
+        bdictionaryUnsafe(
+          bstringAsStr("publisher")          -> bstringAsBytes("bob"),
+          bstringAsStr("publisher-webpage")  -> bstringAsBytes("www.example.com"),
+          bstringAsStr("publisher.location") -> bstringAsBytes("home")
         ),
         "",
         83

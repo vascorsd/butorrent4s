@@ -75,7 +75,7 @@ def byteStringP(
                            )
                consumed <- in.tail
                               .consume(len) { data =>
-                                 bstringWithVec(data).asRight
+                                 bstringAsBytes(data).asRight
                               }
                               .leftMap(_ =>
                                  parsingMsgBytesErr(
@@ -284,7 +284,7 @@ def dictionaryP(
        elems: List[(BString, Bencode)]
    ): ParseResult[BDictionary] = {
       in.headOption match {
-         case Some(`e`) => (i + 1, in.tail, bdictionary(elems.reverse)).asRight
+         case Some(`e`) => (i + 1, in.tail, bdictionaryUnsafe(elems.reverse)).asRight
          case Some(_)   =>
             byteStringP(in, i) match {
                case err @ Left(_)                      => err.rightCast
@@ -292,7 +292,7 @@ def dictionaryP(
                   // enforcing ordering (lexicographic) of keys and no duplicates.
 
                   // trying to get the new key in a textual representation.
-                  parsedKey.tryIntoBStringOfString match {
+                  parsedKey.tryIntoBStringAsStr match {
                      // couldn't get a Text / String key from the Bstring bytes.
                      case None     =>
                         parsingMsgBytesErr(
