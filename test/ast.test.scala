@@ -109,4 +109,84 @@ class AstTests extends munit.FunSuite {
       assertEquals(b1.tryIntoString, None)
       assertEquals(b1.tryIntoBStringAsStr, None)
    }
+
+   test("binteger construction and its .toString representation") {
+      val b1 = binteger(10)
+      val b2 = binteger(2000009999999999999L)
+      val b3 = binteger(BigInt("9999999999999999999999999999999999999999999999999"))
+
+      assertEquals(b1.toString(), "bint:10")
+      assertEquals(b2.toString(), "bint:2000009999999999999")
+      assertEquals(b3.toString(), "bint:9999999999999999999999999999999999999999999999999")
+   }
+
+   test("bdictionary unsafe constructs don't alter the inputs") {
+      val bl = bstringAsStr("zoomer") -> binteger(80) ::
+         bstringAsBytes("bananas") -> binteger(6) ::
+         bstringAsBytes("bananas") -> blist(binteger(3)) ::
+         Nil
+
+      val b1 = bdictionaryUnsafe(bl)
+      val b2 = bdictionaryUnsafe(
+        bstringAsStr("b") -> binteger(10),
+        bstringAsStr("a") -> binteger(20)
+      )
+
+      assertEquals(
+        b1.toString,
+        """bdict{ bstring"zoomer" -> bint:80, bstring|7:0x62616e616e6173| -> bint:6, bstring|7:0x62616e616e6173| -> blist[ bint:3 ] }"""
+      )
+
+      assertEquals(
+        b2.toString,
+        """bdict{ bstring"b" -> bint:10, bstring"a" -> bint:20 }"""
+      )
+   }
+
+   test("bdictionary constructors cleans up duplicates - last key repeated key wins, old removed") {
+      val b1 = bdictionary(
+        "hy" -> binteger(1),
+        "hy" -> binteger(2)
+      )
+
+      val b2 = bdictionary(
+        ""      -> blist() ::
+           "hy" -> binteger(2) ::
+           "hy" -> binteger(1) ::
+           ""   -> binteger(5) ::
+           Nil
+      )
+
+      assertEquals(b1.toString, """bdict{ bstring"hy" -> bint:2 }""")
+      assertEquals(b2.toString, """bdict{ bstring"" -> bint:5, bstring"hy" -> bint:1 }""")
+   }
+
+   test("bdictionary constructors ensure lexicographic order by the keys") {
+      val b1 = bdictionary(
+        "hey"     -> blist(),
+        "zzz"     -> binteger(1),
+        "rr"      -> binteger(2),
+        "bananas" -> bdictionary(),
+        "Bananas" -> binteger(1),
+        "car"     -> blist(),
+        "Car"     -> binteger(1),
+        "élite"   -> binteger(10),
+        "étoile"  -> blist()
+      )
+
+      assertEquals(
+        b1.toString,
+        """bdict{ """
+           + """bstring"Bananas" -> bint:1, """
+           + """bstring"Car" -> bint:1, """
+           + """bstring"bananas" -> bdict{  }, """
+           + """bstring"car" -> blist[  ], """
+           + """bstring"hey" -> blist[  ], """
+           + """bstring"rr" -> bint:2, """
+           + """bstring"zzz" -> bint:1, """
+           + """bstring"élite" -> bint:10, """
+           + """bstring"étoile" -> blist[  ] """
+           + """}"""
+      )
+   }
 }
