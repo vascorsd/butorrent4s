@@ -120,6 +120,17 @@ class AstTests extends munit.FunSuite {
       assertEquals(b3.toString(), "bint:9999999999999999999999999999999999999999999999999")
    }
 
+   test("blist constructors create expected structure") {
+      val bl1 = blist()
+      assertEquals(bl1.toString, "blist[  ]")
+
+      val bl2 = blist(binteger(10))
+      assertEquals(bl2.toString, "blist[ bint:10 ]")
+
+      val bl3 = blist(binteger(10), bstringAsStr("blah"))
+      assertEquals(bl3.toString, """blist[ bint:10, bstring"blah" ]""")
+   }
+
    test("bdictionary unsafe constructs don't alter the inputs") {
       val bl = bstringAsStr("zoomer") -> binteger(80) ::
          bstringAsBytes("bananas") -> binteger(6) ::
@@ -143,7 +154,7 @@ class AstTests extends munit.FunSuite {
       )
    }
 
-   test("bdictionary constructors cleans up duplicates - last key repeated key wins, old removed") {
+   test("bdictionary safe constructors cleans up duplicates - last key repeated key wins, old removed") {
       val b1 = bdictionary(
         "hy" -> binteger(1),
         "hy" -> binteger(2)
@@ -161,7 +172,7 @@ class AstTests extends munit.FunSuite {
       assertEquals(b2.toString, """bdict{ bstring"" -> bint:5, bstring"hy" -> bint:1 }""")
    }
 
-   test("bdictionary constructors ensure lexicographic order by the keys") {
+   test("bdictionary safe constructors ensure lexicographic order by the keys") {
       val b1 = bdictionary(
         "hey"     -> blist(),
         "zzz"     -> binteger(1),
@@ -188,5 +199,21 @@ class AstTests extends munit.FunSuite {
            + """bstring"étoile" -> blist[  ] """
            + """}"""
       )
+   }
+
+   test("bdictionary can be constructured as empty") {
+      val bd = bdictionary()
+
+      assertEquals(bd.toString, "bdict{  }")
+   }
+
+   test("bdictionary can be constructed with a single element") {
+      val bd1 = bdictionary("one", blist())
+
+      assertEquals(bd1.toString, """bdict{ bstring"one" -> blist[  ] }""")
+
+      val bd2 = bdictionary("two" -> blist())
+
+      assertEquals(bd2.toString, """bdict{ bstring"two" -> blist[  ] }""")
    }
 }
