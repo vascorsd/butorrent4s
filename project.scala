@@ -6,7 +6,7 @@
 
 //> using option -source "3.3"
 //> using option -language:strictEquality
-////> using option -explain
+//> using option -explain
 //> using option -new-syntax
 //> using option -no-indent
 

@@ -84,4 +84,15 @@ class EncoderTests extends munit.FunSuite {
       assertEquals(encode(Tuple.apply(1)), utf8Bytes"i1e")
       assertEquals(encode("hey", 10, 5 :: 10 :: Nil), utf8Bytes"3:heyi10eli5ei10ee")
    }
+
+   test("encoder: Case classes") {
+      import Encoder.*
+
+      case class Hi(name: String, age: Int) derives Encoder
+      val h = Hi("john", 42)
+
+      val encodedData = h.encode
+
+      assertEquals(encodedData, utf8Bytes"")
+   }
 }
