@@ -3,10 +3,11 @@
 
 package butorrent4s
 
-import cats.data.Validated
+import cats.data.{NonEmptyList, Validated}
 import cats.effect.*
 import cats.effect.std.Console
-import cats.syntax.monoid.*
+import cats.syntax.all.*
+import fs2.Chunk
 import fs2.io.*
 import scodec.bits.ByteVector
 
@@ -72,9 +73,24 @@ object Main extends IOApp {
                      }
                      .as(ExitCode.Success)
 
-               case Program.Encode(input) =>
+               case Program.Encode(target, inputs) =>
+                  val c: Option[String | BigInt | List[String]] = target match {
+                     case "s" => inputs.head.pure[Option]
+                     case "i" => Numeric[BigInt].parseString(inputs.head)
+                     case "l" => inputs.toList.pure[Option]
+                     case "d" => ???
+                     case _   => ???
+                  }
+
+                  val xx = c.map {
+                     case s: String       => encode(s)
+                     case i: BigInt       => encode(i)
+                     case l: List[String] => encode(l)
+                  }
+
                   val x = fs2.Stream
-                     .emits(encode(input).toSeq)
+                     .chunk(Chunk.fromOption(xx))
+                     .flatMap(bv => fs2.Stream.chunk(Chunk.byteVector(bv)))
                      .through(fs2.io.stdout[IO])
                      .compile
                      .drain
@@ -90,7 +106,7 @@ object Main extends IOApp {
 enum Program derives CanEqual {
    case Version
    case Decode(input: String)
-   case Encode(input: String)
+   case Encode(target: String, inputs: NonEmptyList[String])
 }
 
 object Program {
@@ -126,9 +142,20 @@ object Program {
         header = "Encode Bencoded data",
         helpFlag = false
       ) {
+         val inputsOpt = Opts.arguments[String]("input")
+
+         val allowed   = "s" :: "i" :: "l" :: "d" :: Nil
+         val targetOpt = Opts
+            .argument[String]("target")
+            .validate(s"Targets allowed to encode into: ${allowed.mkString("'", ", ", "'")}")(
+              allowed.contains(_)
+            )
+
+         val encodeOpt = (targetOpt, inputsOpt).mapN(Program.Encode.apply)
+
          helpFlag
-            .orElse(Opts.argument[String]("INPUT"))
-      }.map(Program.Encode(_))
+            .orElse(encodeOpt)
+      }
 
    def decodeCommand =
       Command(
@@ -137,7 +164,7 @@ object Program {
         helpFlag = false
       ) {
          helpFlag
-            .orElse(Opts.argument[String]("INPUT"))
+            .orElse(Opts.argument[String]("input"))
       }.map(Program.Decode(_))
 
    def fullProgram: Opts[Program] =
